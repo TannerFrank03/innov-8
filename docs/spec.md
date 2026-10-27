@@ -1,4 +1,4 @@
-# Innov-8 Planner: Product Spec
+# Orchestr8: Product Spec
 
 Source: `roadmap-innov8-planner.md` (Development handoff). Users: **Owner** (manages team and boards) and **Designer** (member).
 

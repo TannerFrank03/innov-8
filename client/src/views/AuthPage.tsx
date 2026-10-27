@@ -35,8 +35,9 @@ export default function AuthPage({ setup }: { setup: boolean }) {
   return (
     <main className="auth">
       <section className="auth-brand" aria-hidden>
-        <div className="logo logo-lg"><span>innov</span><b>-8</b></div>
+        <div className="logo logo-lg"><span>orchestr</span><b>-8</b></div>
         <p>Plan the work. Ship the work.</p>
+        <span className="auth-by">An innov-8 studio tool</span>
       </section>
       <section className="auth-panel">
         <form className="auth-card" onSubmit={submit} noValidate>

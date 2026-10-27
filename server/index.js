@@ -15,7 +15,7 @@ const app = createApp(db, {
 });
 
 const server = app.listen(port, () => {
-  console.log(`Innov-8 Planner running on http://localhost:${port}`);
+  console.log(`Orchestr8 running on http://localhost:${port}`);
   console.log(`Database: ${config.url.startsWith('file:') ? config.url.slice(5) : config.url}`);
 });
 

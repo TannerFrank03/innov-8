@@ -1,8 +1,8 @@
 {
-  "name": "innov8-planner",
+  "name": "orchestr8",
   "version": "1.0.0",
   "private": true,
-  "description": "Self-hosted planning app for Innov-8: boards with Table, Kanban, Timeline and Calendar views.",
+  "description": "Orchestr8, the innov-8 studio planner: boards with Table, Kanban, Timeline and Calendar views.",
   "type": "module",
   "engines": {
     "node": ">=20"

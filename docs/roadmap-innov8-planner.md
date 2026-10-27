@@ -1,4 +1,4 @@
-# Roadmap: Innov-8 Planner (self-hosted Monday.com + Kanban replacement)
+# Roadmap: Orchestr8, the innov-8 planner (self-hosted Monday.com + Kanban replacement)
 - Version: 1.0 | Date: 2026-10-27
 - Source research: research-innov8-planner.md
 - Goal: Move the Owner and Designer off Monday.com and separate Kanban boards onto one self-owned planning app, at R0/month subscription, by 11 Dec 2026.

@@ -25,7 +25,7 @@ export default function Shell({ user, children }: { user: User; children: ReactN
     <div className={`shell${menuOpen ? ' menu-open' : ''}`}>
       <a href="#main" className="skip-link">Skip to content</a>
       <aside className="sidebar" aria-label="Main navigation">
-        <Link to="/" className="logo"><span>innov</span><b>-8</b></Link>
+        <Link to="/" className="logo"><span>orchestr</span><b>-8</b></Link>
         <SearchBox />
         <nav className="side-nav">
           <NavLink to="/" end>Home</NavLink>
@@ -53,7 +53,7 @@ export default function Shell({ user, children }: { user: User; children: ReactN
       <div className="main-col">
         <header className="topbar-mobile">
           <button className="icon-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">☰</button>
-          <Link to="/" className="logo logo-sm"><span>innov</span><b>-8</b></Link>
+          <Link to="/" className="logo logo-sm"><span>orchestr</span><b>-8</b></Link>
         </header>
         <main id="main" className="main">{children}</main>
       </div>

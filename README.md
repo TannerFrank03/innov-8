@@ -1,6 +1,6 @@
-# Innov-8 Planner
+# Orchestr8
 
-Your own planning app for the Innov-8 studio. It replaces Monday.com and separate Kanban boards, with no subscription.
+Orchestr8 is the innov-8 studio's own planning app. It replaces Monday.com and separate Kanban boards, with no subscription.
 
 - **Boards** for each client or stream of work, with statuses, groups and labels
 - **Four views of the same tasks:** Table, Kanban (drag-and-drop with WIP limits), Timeline and Calendar
