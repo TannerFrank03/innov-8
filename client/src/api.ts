@@ -46,7 +46,11 @@ export const useSearch = (q: string) =>
 /** Optimistically patches a task in the board cache so drag-and-drop feels instant. */
 export function useUpdateTask(boardId: number) {
   const qc = useQueryClient();
+  const mutationKey = ['task-update', boardId];
+  // While another edit is still saving, a server reply can predate it, so only the last reply is applied.
+  const othersPending = () => qc.isMutating({ mutationKey }) > 1;
   return useMutation({
+    mutationKey,
     mutationFn: ({ id, patch }: { id: number; patch: TaskPatch }) => api<Task>(`/tasks/${id}`, { method: 'PATCH', body: patch }),
     onMutate: async ({ id, patch }) => {
       await qc.cancelQueries({ queryKey: ['board', boardId] });
@@ -54,8 +58,12 @@ export function useUpdateTask(boardId: number) {
       if (prev) qc.setQueryData<BoardData>(['board', boardId], { ...prev, tasks: prev.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
       return { prev };
     },
-    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(['board', boardId], ctx.prev),
+    onError: (_e, _v, ctx) => {
+      if (!othersPending() && ctx?.prev) qc.setQueryData(['board', boardId], ctx.prev);
+      qc.invalidateQueries({ queryKey: ['board', boardId] });
+    },
     onSuccess: (task) => {
+      if (othersPending()) return;
       qc.setQueryData<BoardData>(['board', boardId], (d) => d && { ...d, tasks: d.tasks.map((t) => (t.id === task.id ? task : t)) });
       qc.invalidateQueries({ queryKey: ['task', task.id] });
       qc.invalidateQueries({ queryKey: ['my-tasks'] });

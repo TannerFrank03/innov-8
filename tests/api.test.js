@@ -127,6 +127,24 @@ describe('tasks', () => {
     expect(back.completed_at).toBeNull();
   });
 
+  it('keeps both edits when two saves to the same task overlap', async () => {
+    // Simulate a remote database: every read takes a little while, so the saves interleave.
+    const slowDb = await openDatabase({ url: `file:${path.join(tmp, `t${++n}.db`)}` });
+    const get = slowDb.get.bind(slowDb);
+    slowDb.get = async (...a) => { await new Promise((r) => setTimeout(r, 15)); return get(...a); };
+    const agent = request.agent(createApp(slowDb));
+    await agent.post('/api/auth/setup').set(H).send({ name: 'T', email: 't@example.com', password: 'password123' }).expect(201);
+    const { body: board } = await agent.post('/api/boards').set(H).send({ name: 'B' }).expect(201);
+    const { body: t } = await agent.post(`/api/boards/${board.id}/tasks`).set(H).send({ title: 'New task' }).expect(201);
+    await Promise.all([
+      agent.patch(`/api/tasks/${t.id}`).set(H).send({ title: 'Homepage design' }),
+      agent.patch(`/api/tasks/${t.id}`).set(H).send({ due_date: '2026-11-13' }),
+      agent.patch(`/api/tasks/${t.id}`).set(H).send({ priority: 'high' }),
+    ]);
+    const { body } = await agent.get(`/api/tasks/${t.id}`).expect(200);
+    expect(body.task).toMatchObject({ title: 'Homepage design', due_date: '2026-11-13', priority: 'high' });
+  });
+
   it('rejects a start date after the due date', async () => {
     const b = await newBoard();
     const res = await owner.post(`/api/boards/${b.board.id}/tasks`).set(H)

@@ -124,11 +124,16 @@ export function taskRoutes(db) {
     });
     const assigneeName = b.assignee_id ? (await db.get('SELECT name FROM users WHERE id = ?', b.assignee_id)).name : null;
 
+    // Write only the fields this request changed, so two quick edits to the same task
+    // (e.g. title then due date) can't overwrite each other with stale values.
+    const COLUMNS = ['title', 'description', 'status_id', 'group_id', 'assignee_id', 'priority', 'start_date', 'due_date', 'position'];
+    const sets = COLUMNS.filter((c) => b[c] !== undefined).map((c) => [c, b[c]]);
+    if (toStatus.id !== fromStatus.id) sets.push(['completed_at', completedAt]);
+    sets.push(['updated_at', now()]);
+
     await db.transaction(async (tx) => {
-      await tx.run(`UPDATE tasks SET title = ?, description = ?, status_id = ?, group_id = ?, assignee_id = ?, priority = ?,
-        start_date = ?, due_date = ?, position = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
-        pick('title'), pick('description'), pick('status_id'), pick('group_id'), pick('assignee_id'), pick('priority'),
-        start, due, pick('position'), completedAt, now(), taskId);
+      await tx.run(`UPDATE tasks SET ${sets.map(([c]) => `${c} = ?`).join(', ')} WHERE id = ?`,
+        ...sets.map(([, v]) => v), taskId);
       if (b.label_ids) await setLabels(tx, taskId, b.label_ids);
 
       const log = (action, detail) => logActivity(tx, { boardId: current.board_id, taskId, userId: req.user.id, action, detail });
