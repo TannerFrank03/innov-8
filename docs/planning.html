@@ -1,0 +1,600 @@
+<title>Innov-8 Planner Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: single reading column, sections numbered by build order; wireframes in a responsive grid. */
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #efede9; --border: #e0ddd8;
+  --text: #1c1b22; --muted: #67646e; --ink: #14141c;
+  --brand: #e2501a; --brand-soft: #fdeee7;
+  --p1: #8b8d98; --p2: #5b5bd6; --p3: #e2501a; --p4: #12a594; --p5: #30a46c;
+  --ok: #1f8a4c; --ok-soft: #e6f5ec; --warn: #a86400; --warn-soft: #fff4e0;
+  --wf-line: #c9c5bf; --wf-fill: #f1efec; --wf-block: #dcd8d2;
+  --font-display: 'Sora', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111117; --surface: #1a1a22; --surface-2: #22222c; --border: #30303c;
+  --text: #ecebf1; --muted: #a09eab; --brand: #ff6a33; --brand-soft: #3a1d12;
+  --ok: #4cc27f; --ok-soft: #11291b; --warn: #f0a83a; --warn-soft: #33240b;
+  --wf-line: #444452; --wf-fill: #20202a; --wf-block: #34343f; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111117; --surface: #1a1a22; --surface-2: #22222c; --border: #30303c;
+  --text: #ecebf1; --muted: #a09eab; --brand: #ff6a33; --brand-soft: #3a1d12;
+  --ok: #4cc27f; --ok-soft: #11291b; --warn: #f0a83a; --warn-soft: #33240b;
+  --wf-line: #444452; --wf-fill: #20202a; --wf-block: #34343f; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font: 16px/1.6 var(--font-body); margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; text-wrap: balance; letter-spacing: -0.015em; margin: 0; }
+h1 { font-size: clamp(1.9rem, 4vw, 2.8rem); }
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1rem; }
+p { margin: 0; max-width: 68ch; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--font-mono); font-size: 0.82em; }
+.eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; color: var(--brand); }
+section { display: flex; flex-direction: column; gap: 16px; padding-top: 48px; }
+.sec-head { display: flex; gap: 12px; align-items: baseline; border-top: 2px solid var(--ink); padding-top: 12px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sec-head { border-top-color: var(--text); } }
+:root[data-theme="dark"] .sec-head { border-top-color: var(--text); }
+.sec-num { font-family: var(--font-mono); color: var(--brand); font-size: 0.9rem; }
+
+header.hero { display: grid; gap: 20px; }
+.logo { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.03em; }
+.logo b { color: var(--brand); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.fact { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.fact dt { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.fact dd { margin: 4px 0 0; font-weight: 500; }
+
+/* Agent pipeline */
+.pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; counter-reset: step; }
+.stage { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; position: relative; }
+.stage .who { font-family: var(--font-mono); font-size: 0.78rem; color: var(--brand); }
+.stage ul { margin: 0; padding-left: 18px; font-size: 0.9rem; }
+.stage .out { margin-top: auto; font-size: 0.82rem; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 8px; }
+.status { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.06em; }
+.s-done { background: var(--ok-soft); color: var(--ok); }
+.s-todo { background: var(--surface-2); color: var(--muted); }
+.s-block { background: var(--warn-soft); color: var(--warn); }
+
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; overflow-x: auto; }
+pre.mermaid { margin: 0; background: transparent; font-size: 14px; min-width: 640px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+.legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+
+/* Milestones */
+.gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.gate { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gate .date { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.gate .if { font-size: 0.85rem; color: var(--muted); }
+.gate .if b { color: var(--text); }
+.diamond { width: 12px; height: 12px; background: var(--brand); transform: rotate(45deg); display: inline-block; margin-right: 8px; }
+
+/* Tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 640px; }
+.tbl th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.tbl td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.tbl td:first-child { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+
+/* Wireframes */
+.wf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 20px; }
+.wf-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.wf-card figcaption { font-size: 0.88rem; color: var(--muted); }
+.wf-card figcaption b { color: var(--text); font-family: var(--font-display); }
+figure { margin: 0; }
+.wf { border: 1.5px solid var(--wf-line); border-radius: 10px; background: var(--wf-fill); overflow: hidden; font-size: 11px; color: var(--muted); aspect-ratio: 16 / 10; display: grid; grid-template-columns: 22% 1fr; max-width: 100%; }
+.wf-side { background: var(--wf-block); padding: 10px 8px; display: flex; flex-direction: column; gap: 6px; }
+.wf-main { padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.b { background: var(--wf-block); border-radius: 4px; height: 8px; }
+.b.w30 { width: 30%; } .b.w50 { width: 50%; } .b.w70 { width: 70%; } .b.w90 { width: 90%; }
+.b.h14 { height: 14px; }
+.box { border: 1.5px dashed var(--wf-line); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.solid { border-style: solid; background: var(--surface); }
+.accent { background: var(--brand); }
+.accent-o { outline: 2px solid var(--brand); outline-offset: 1px; }
+.row { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.dotc { width: 10px; height: 10px; border-radius: 50%; background: var(--wf-line); flex: none; }
+.lbl { font-family: var(--font-mono); font-size: 9px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note { font-family: var(--font-mono); font-size: 9px; color: var(--brand); }
+.tabsw { display: flex; gap: 8px; border-bottom: 1.5px solid var(--wf-line); padding-bottom: 4px; }
+.tabsw span { font-family: var(--font-mono); font-size: 9px; }
+.tabsw span.on { color: var(--brand); border-bottom: 2px solid var(--brand); }
+.kan { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: 1; min-height: 0; }
+.kan .box { background: var(--surface-2); border-style: solid; border-color: transparent; }
+.card { background: var(--surface); border: 1px solid var(--wf-line); border-radius: 4px; padding: 5px; display: flex; flex-direction: column; gap: 4px; }
+.trow { display: grid; grid-template-columns: 2.4fr 1fr 1fr 0.8fr 1fr; gap: 1px; background: var(--wf-line); }
+.trow > div { background: var(--surface); padding: 4px; min-height: 16px; }
+.trow.h > div { background: var(--surface-2); }
+.st { border-radius: 2px; }
+.tl { display: grid; grid-template-columns: 26% 1fr; gap: 0; flex: 1; border: 1px solid var(--wf-line); background: var(--surface); }
+.tl > div { border-bottom: 1px solid var(--wf-line); min-height: 18px; position: relative; padding: 3px; }
+.bar { position: absolute; top: 4px; height: 10px; border-radius: 3px; background: var(--wf-line); }
+.today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--brand); }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--wf-line); flex: 1; border: 1px solid var(--wf-line); }
+.cal > div { background: var(--surface); padding: 2px; display: flex; flex-direction: column; gap: 2px; min-height: 18px; }
+.chipw { height: 6px; border-radius: 2px; background: var(--wf-block); }
+.wf-drawer { grid-template-columns: 22% 1fr 42%; }
+.wf-phone { aspect-ratio: 9 / 16; grid-template-columns: 1fr; max-width: 230px; margin: 0 auto; width: 100%; }
+
+/* Checklist */
+.checklist { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.checklist li { display: flex; gap: 12px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.checklist input { width: 20px; height: 20px; accent-color: var(--brand); margin-top: 2px; flex: none; }
+.checklist label { cursor: pointer; }
+.checklist .who { font-size: 0.8rem; color: var(--muted); display: block; }
+footer { margin-top: 56px; font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="logo">innov<b>-8</b> planner</div>
+    <div>
+      <p class="eyebrow">Planning document · v1.0 · 27 October 2026</p>
+      <h1>Off Monday.com by 11 December, at R0 a month</h1>
+    </div>
+    <p class="muted">One self-hosted app for the owner and the designer. It has Table, Kanban, Timeline and Calendar views over the same tasks. Below: how it was researched, planned and built, the schedule to go live, the data model, and wireframes of every screen.</p>
+    <dl class="facts">
+      <div class="fact"><dt>Replaces</dt><dd>Monday.com ($36–57/mo, 3-seat minimum) + Kanban boards</dd></div>
+      <div class="fact"><dt>Team</dt><dd>Owner (admin) · Designer (member)</dd></div>
+      <div class="fact"><dt>Stack</dt><dd>Node 22 · Express · SQLite · React</dd></div>
+      <div class="fact"><dt>Blocking now</dt><dd>Brand colours &amp; fonts, hosting choice</dd></div>
+    </dl>
+  </header>
+
+  <section aria-labelledby="s1">
+    <div class="sec-head"><span class="sec-num">01</span><h2 id="s1">How it was made: three agents in sequence</h2></div>
+    <div class="pipeline">
+      <article class="stage">
+        <span class="who">Researcher agent</span>
+        <h3>Research brief <span class="status s-done">done</span></h3>
+        <ul>
+          <li>Monday.com pricing and plan limits</li>
+          <li>Which views a two-person studio relies on</li>
+          <li>Kanban practice: WIP limits</li>
+          <li>Free hosting limits (Supabase, Vercel, Cloudflare)</li>
+          <li>Website brand: <b>blocked</b>, the site was unreachable</li>
+        </ul>
+        <span class="out mono">docs/research-innov8-planner.md</span>
+      </article>
+      <article class="stage">
+        <span class="who">Planner agent</span>
+        <h3>Roadmap <span class="status s-done">done</span></h3>
+        <ul>
+          <li>5 phases, 23 tasks, 3 decision gates</li>
+          <li>Critical path and risk mitigations</li>
+          <li>MoSCoW feature list and data entities</li>
+          <li>ERD and wireframes (this page)</li>
+        </ul>
+        <span class="out mono">docs/roadmap-innov8-planner.md</span>
+      </article>
+      <article class="stage">
+        <span class="who">Developer agent</span>
+        <h3>Working app <span class="status s-done">done</span></h3>
+        <ul>
+          <li>Spec, API contract, architecture</li>
+          <li>SQLite schema, API, auth</li>
+          <li>Four board views, task drawer, settings</li>
+          <li>16 API/rule tests + browser E2E passing</li>
+        </ul>
+        <span class="out mono">server/ · client/ · tests/</span>
+      </article>
+      <article class="stage">
+        <span class="who">You</span>
+        <h3>Go live <span class="status s-block">next</span></h3>
+        <ul>
+          <li>Send brand colours, fonts, logo</li>
+          <li>Pick where it runs</li>
+          <li>Export Monday.com boards</li>
+          <li>Pilot for 2 weeks, then cancel</li>
+        </ul>
+        <span class="out">See “Next 7 days” below</span>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="s2">
+    <div class="sec-head"><span class="sec-num">02</span><h2 id="s2">Timeline</h2></div>
+    <div class="legend">
+      <span style="--c: var(--p1)">P1 Confirm inputs</span><span style="--c: var(--p2)">P2 Design</span>
+      <span style="--c: var(--p3)">P3 Build MVP</span><span style="--c: var(--p4)">P4 Pilot &amp; migrate</span><span style="--c: var(--p5)">P5 Cut over</span>
+    </div>
+    <div class="panel">
+<pre class="mermaid">
+gantt
+  dateFormat YYYY-MM-DD
+  axisFormat %d %b
+  todayMarker stroke-width:2px,stroke:#e2501a
+  section P1 Confirm inputs
+  T1 Brand colours, fonts, logo     :crit, t1, 2026-10-28, 1d
+  T2 Choose hosting                 :crit, t2, 2026-10-28, 2d
+  T3 Export Monday.com boards       :t3, 2026-10-28, 3d
+  G1 Inputs confirmed               :milestone, g1, 2026-10-30, 0d
+  section P2 Design
+  T4 ERD                            :done, t4, 2026-10-28, 1d
+  T5 Wireframes                     :done, t5, 2026-10-28, 2d
+  T6 Review ERD and wireframes      :t6, 2026-10-30, 4d
+  T7 Brand theme tokens             :crit, t7, 2026-11-03, 2d
+  G2 Design sign-off                :milestone, g2, 2026-11-04, 0d
+  section P3 Build MVP
+  T8-T12 API, auth, home, Kanban, Table  :done, b1, 2026-11-02, 9d
+  T13-T16 Timeline, Calendar, drawer, settings :done, b2, 2026-11-11, 8d
+  T17-T18 Docker, backups, smoke test :done, b3, 2026-11-19, 2d
+  M1 MVP ready                      :milestone, m1, 2026-11-20, 0d
+  section P4 Pilot and migrate
+  T19 Deploy with HTTPS and backups :crit, t19, 2026-11-23, 2d
+  T20 CSV import from Monday.com    :t20, 2026-11-23, 2d
+  T21 Migrate boards, run in parallel :crit, t21, 2026-11-25, 9d
+  T22 Test a restore                :t22, 2026-12-04, 1d
+  G3 Pilot go or no-go              :milestone, g3, 2026-12-04, 0d
+  section P5 Cut over
+  T23 Archive export, cancel Monday :crit, t23, 2026-12-07, 5d
+</pre>
+    </div>
+    <p class="muted">The build phase (P3) is already complete. The schedule now depends on decisions only you can make: brand, hosting and the board export.</p>
+  </section>
+
+  <section aria-labelledby="s3">
+    <div class="sec-head"><span class="sec-num">03</span><h2 id="s3">Dependencies and critical path</h2></div>
+    <div class="panel">
+<pre class="mermaid">
+flowchart LR
+  T1[T1 Brand assets] --> T7[T7 Theme tokens]
+  T6[T6 Review designs] --> T7
+  T4[T4 ERD]:::done --> T6
+  T5[T5 Wireframes]:::done --> T6
+  T4 --> BUILD[T8–T18 Build MVP]:::done
+  T2[T2 Hosting] --> T19[T19 Deploy + HTTPS]
+  BUILD --> T19
+  T7 --> T19
+  T3[T3 Monday export] --> T20[T20 CSV import]
+  BUILD --> T20
+  T19 --> T21[T21 Migrate + pilot]
+  T20 --> T21
+  T19 --> T22[T22 Restore test]
+  T21 --> G3{{G3 Go / no-go}}
+  T22 --> G3
+  G3 --> T23[T23 Cancel Monday.com]
+  classDef done fill:#e6f5ec,stroke:#1f8a4c,color:#1c1b22
+  classDef crit fill:#fdeee7,stroke:#e2501a,stroke-width:2px,color:#1c1b22
+  class T1,T7,T19,T21,G3,T23 crit
+</pre>
+    </div>
+    <p><b>Critical path:</b> <span class="mono">T1 → T7 → T19 → T21 → G3 → T23</span>. The bottleneck is T1: the brand assets gate the theme, and the theme should be in place before the designer starts living in the app.</p>
+  </section>
+
+  <section aria-labelledby="s4">
+    <div class="sec-head"><span class="sec-num">04</span><h2 id="s4">Decision gates</h2></div>
+    <div class="gates">
+      <article class="gate">
+        <h3><span class="diamond"></span>G1 Inputs confirmed</h3>
+        <span class="date">30 Oct 2026</span>
+        <p>Brand assets, hosting choice and Monday.com export in hand.</p>
+        <p class="if"><b>If not met:</b> keep the placeholder theme; swap in the brand later in one file.</p>
+      </article>
+      <article class="gate">
+        <h3><span class="diamond"></span>G2 Design sign-off</h3>
+        <span class="date">4 Nov 2026</span>
+        <p>Both of you approve the ERD, wireframes and brand theme.</p>
+        <p class="if"><b>If not met:</b> list changes; the app is already working, so polish runs alongside.</p>
+      </article>
+      <article class="gate">
+        <h3><span class="diamond"></span>M1 MVP ready</h3>
+        <span class="date">20 Nov 2026 · <b style="color:var(--ok)">reached early</b></span>
+        <p>All Must features pass the tests and run with one command.</p>
+        <p class="if"><b>If not met:</b> drop Should features to protect the date.</p>
+      </article>
+      <article class="gate">
+        <h3><span class="diamond"></span>G3 Pilot go / no-go</h3>
+        <span class="date">4 Dec 2026</span>
+        <p>All active boards migrated, no blocking bugs, restore tested.</p>
+        <p class="if"><b>If not met:</b> extend the pilot a week; keep Monday.com one more cycle.</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="s5">
+    <div class="sec-head"><span class="sec-num">05</span><h2 id="s5">High-level ERD</h2></div>
+    <p class="muted">Every view reads the same <b>tasks</b> table. A Kanban column is a <b>status</b>, a Table section is a <b>group</b>, and Timeline and Calendar read the task's start and due dates.</p>
+    <div class="panel">
+<pre class="mermaid">
+erDiagram
+  USERS ||--o{ SESSIONS : "signs in with"
+  USERS ||--o{ BOARDS : creates
+  BOARDS ||--|{ STATUSES : "kanban columns"
+  BOARDS ||--|{ TASK_GROUPS : "table sections"
+  BOARDS ||--o{ LABELS : defines
+  BOARDS ||--o{ TASKS : contains
+  STATUSES ||--o{ TASKS : "state of"
+  TASK_GROUPS ||--o{ TASKS : groups
+  USERS |o--o{ TASKS : "assigned to"
+  TASKS ||--o{ TASK_LABELS : tagged
+  LABELS ||--o{ TASK_LABELS : tags
+  TASKS ||--o{ SUBTASKS : "broken into"
+  TASKS ||--o{ COMMENTS : "discussed in"
+  USERS ||--o{ COMMENTS : writes
+  BOARDS ||--o{ ACTIVITY : logs
+  TASKS |o--o{ ACTIVITY : "subject of"
+  USERS {
+    int id PK
+    text name
+    text email UK
+    text password_hash
+    text role "owner or member"
+    text color
+    bool active
+  }
+  BOARDS {
+    int id PK
+    text name
+    text description
+    text color
+    bool archived
+    int created_by FK
+  }
+  STATUSES {
+    int id PK
+    int board_id FK
+    text name
+    text color
+    real position
+    int wip_limit "nullable"
+    bool is_done
+  }
+  TASK_GROUPS {
+    int id PK
+    int board_id FK
+    text name
+    real position
+  }
+  TASKS {
+    int id PK
+    int board_id FK
+    int status_id FK
+    int group_id FK
+    int assignee_id FK
+    text title
+    text description
+    text priority "low to urgent"
+    date start_date
+    date due_date
+    real position
+    datetime completed_at
+  }
+  LABELS {
+    int id PK
+    int board_id FK
+    text name
+    text color
+  }
+  SUBTASKS {
+    int id PK
+    int task_id FK
+    text title
+    bool done
+  }
+  COMMENTS {
+    int id PK
+    int task_id FK
+    int user_id FK
+    text body
+  }
+  ACTIVITY {
+    int id PK
+    int board_id FK
+    int task_id FK
+    int user_id FK
+    text action
+    json detail
+  }
+</pre>
+    </div>
+    <div class="panel">
+      <table class="tbl">
+        <thead><tr><th>Rule</th><th>What it protects</th></tr></thead>
+        <tbody>
+          <tr><td>start ≤ due</td><td>Timeline bars always run forward; checked on the server.</td></tr>
+          <tr><td>same board</td><td>A task's status, group and labels must belong to its own board.</td></tr>
+          <tr><td>is_done</td><td>Moving into a done status stamps <span class="mono">completed_at</span>; moving out clears it.</td></tr>
+          <tr><td>≥ 1 status, ≥ 1 group</td><td>Deleting one moves its tasks to a replacement you choose.</td></tr>
+          <tr><td>soft delete users</td><td>Removed people keep their name on old comments; their tasks become unassigned.</td></tr>
+          <tr><td>archive first</td><td>A board must be archived before the owner can delete it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="s6">
+    <div class="sec-head"><span class="sec-num">06</span><h2 id="s6">Wireframes</h2></div>
+    <p class="muted">Low-fidelity layouts of each screen as built. Orange marks the primary action or current state on each screen.</p>
+    <div class="wf-grid">
+      <figure class="wf-card">
+        <div class="wf" role="img" aria-label="Home screen wireframe">
+          <div class="wf-side"><div class="b w70 h14"></div><div class="b w90"></div><div class="b w50 accent"></div><div class="b w70"></div><span class="lbl">BOARDS</span><div class="b w70"></div><div class="b w50"></div></div>
+          <div class="wf-main">
+            <div class="row"><div class="col"><span class="lbl">TUESDAY, 27 OCTOBER</span><div class="b w50 h14"></div></div><div class="b accent" style="width:22%;height:14px"></div></div>
+            <div class="row"><div class="box solid col"><b>4</b><span class="lbl">open for you</span></div><div class="box solid col"><b>3</b><span class="lbl">due in 7 days</span></div><div class="box solid col accent-o"><b>1</b><span class="lbl">overdue</span></div></div>
+            <div class="row" style="align-items:stretch;flex:1">
+              <div class="box solid col" style="flex:1.4"><span class="lbl">MY TASKS · OVERDUE / NEXT 7 DAYS / LATER</span><div class="b w90"></div><div class="b w70"></div><div class="b w90"></div><div class="b w50"></div></div>
+              <div class="box solid col"><span class="lbl">BOARDS</span><div class="box"><div class="b w70"></div><div class="b w50 accent" style="height:4px"></div></div><div class="box"><div class="b w50"></div><div class="b w30" style="height:4px"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Home.</b> The week at a glance: counts, your tasks across every board bucketed by due date, and board cards with progress.</figcaption>
+      </figure>
+
+      <figure class="wf-card">
+        <div class="wf" role="img" aria-label="Kanban view wireframe">
+          <div class="wf-side"><div class="b w70 h14"></div><div class="b w90"></div><span class="lbl">BOARDS</span><div class="b w70 accent"></div><div class="b w50"></div></div>
+          <div class="wf-main">
+            <div class="row"><div class="b w50 h14"></div><span style="flex:1"></span><div class="b" style="width:12%;height:12px"></div><div class="b accent" style="width:16%;height:12px"></div></div>
+            <div class="tabsw"><span>Table</span><span class="on">Kanban</span><span>Timeline</span><span>Calendar</span><span style="flex:1"></span><span>filter · person · label · hide done</span></div>
+            <div class="kan">
+              <div class="box col"><span class="lbl">To do · 4</span><div class="card"><div class="chipw" style="width:30%"></div><div class="b w90"></div><div class="row"><div class="b w30"></div><span style="flex:1"></span><span class="dotc"></span></div></div><div class="card"><div class="b w70"></div></div><span class="lbl">+ Add task</span></div>
+              <div class="box col" style="background:var(--warn-soft)"><span class="lbl">In progress · 5 / 4</span><span class="note">over WIP limit</span><div class="card"><div class="b w90"></div></div><div class="card accent-o"><div class="b w70"></div><span class="note">dragging</span></div></div>
+              <div class="box col"><span class="lbl">Client review</span><div class="card"><div class="b w70"></div></div></div>
+              <div class="box col"><span class="lbl">Done</span><div class="card"><div class="b w50"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Board · Kanban.</b> Columns are statuses. Drag with mouse, touch or keyboard. The count shows the WIP limit and the column warns when it is over.</figcaption>
+      </figure>
+
+      <figure class="wf-card">
+        <div class="wf" role="img" aria-label="Table view wireframe">
+          <div class="wf-side"><div class="b w70 h14"></div><div class="b w90"></div><span class="lbl">BOARDS</span><div class="b w70 accent"></div></div>
+          <div class="wf-main">
+            <div class="tabsw"><span class="on">Table</span><span>Kanban</span><span>Timeline</span><span>Calendar</span></div>
+            <span class="lbl" style="color:var(--p2)">▾ THIS WEEK · 6</span>
+            <div class="col" style="gap:0">
+              <div class="trow h"><div class="lbl">TASK</div><div class="lbl">STATUS</div><div class="lbl">OWNER</div><div class="lbl">PRIO</div><div class="lbl">DUE</div></div>
+              <div class="trow"><div><div class="b w70"></div></div><div class="st" style="background:#f5a524"></div><div><span class="dotc"></span></div><div><div class="b w50"></div></div><div><div class="b w70"></div></div></div>
+              <div class="trow"><div><div class="b w90"></div></div><div class="st" style="background:var(--p2)"></div><div><span class="dotc"></span></div><div><div class="b w50"></div></div><div><div class="b w50 accent"></div></div></div>
+              <div class="trow"><div><div class="b w50"></div></div><div class="st" style="background:var(--p1)"></div><div><span class="dotc"></span></div><div></div><div><div class="b w70"></div></div></div>
+              <div class="trow"><div class="lbl">+ Add task</div><div></div><div></div><div></div><div></div></div>
+            </div>
+            <span class="lbl">▸ NEXT UP · 2</span>
+          </div>
+        </div>
+        <figcaption><b>Board · Table.</b> Monday.com-style grouped rows. Every cell edits inline, and status cells take their status colour.</figcaption>
+      </figure>
+
+      <figure class="wf-card">
+        <div class="wf" role="img" aria-label="Timeline view wireframe">
+          <div class="wf-side"><div class="b w70 h14"></div><div class="b w90"></div><span class="lbl">BOARDS</span><div class="b w70 accent"></div></div>
+          <div class="wf-main">
+            <div class="tabsw"><span>Table</span><span>Kanban</span><span class="on">Timeline</span><span>Calendar</span></div>
+            <div class="row"><span class="lbl">← Today →  19 Oct – 13 Dec</span><span style="flex:1"></span><span class="lbl">4w · <b>8w</b> · 12w</span></div>
+            <div class="tl">
+              <div class="lbl">TASK</div><div class="lbl">week 19 Oct · 26 Oct · 2 Nov · 9 Nov</div>
+              <div><div class="b w70"></div></div><div><span class="bar" style="left:4%;width:16%;background:var(--p5);opacity:.6"></span><span class="today" style="left:30%"></span></div>
+              <div><div class="b w90"></div></div><div><span class="bar" style="left:14%;width:22%;background:var(--p2)"></span><span class="today" style="left:30%"></span></div>
+              <div><div class="b w50"></div></div><div><span class="bar" style="left:24%;width:16%;background:#f5a524"></span><span class="today" style="left:30%"></span></div>
+              <div><div class="b w70"></div></div><div><span class="bar" style="left:52%;width:30%"></span><span class="today" style="left:30%"></span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Board · Timeline.</b> Bars run from start to due date, coloured by status, grouped like the table. The orange line is today.</figcaption>
+      </figure>
+
+      <figure class="wf-card">
+        <div class="wf" role="img" aria-label="Calendar view wireframe">
+          <div class="wf-side"><div class="b w70 h14"></div><div class="b w90"></div><span class="lbl">BOARDS</span><div class="b w70 accent"></div></div>
+          <div class="wf-main">
+            <div class="tabsw"><span>Table</span><span>Kanban</span><span>Timeline</span><span class="on">Calendar</span></div>
+            <span class="lbl">← Today →  October 2026</span>
+            <div class="cal">
+              <div class="lbl">MON</div><div class="lbl">TUE</div><div class="lbl">WED</div><div class="lbl">THU</div><div class="lbl">FRI</div><div class="lbl">SAT</div><div class="lbl">SUN</div>
+              <div></div><div></div><div><span class="chipw"></span></div><div></div><div></div><div></div><div></div>
+              <div></div><div class="accent-o"><span class="chipw" style="background:var(--p2)"></span></div><div></div><div><span class="chipw" style="background:#f5a524"></span></div><div><span class="chipw"></span></div><div><span class="chipw"></span></div><div></div>
+              <div></div><div></div><div class="lbl">+ add</div><div></div><div></div><div></div><div></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Board · Calendar.</b> Tasks sit on their due date. Hover a day and press + to add a task due that day.</figcaption>
+      </figure>
+
+      <figure class="wf-card">
+        <div class="wf wf-drawer" role="img" aria-label="Task drawer wireframe">
+          <div class="wf-side"><div class="b w70 h14"></div><div class="b w90"></div></div>
+          <div class="wf-main" style="opacity:.45"><div class="kan" style="grid-template-columns:repeat(2,1fr)"><div class="box"><div class="card"><div class="b w70"></div></div></div><div class="box"><div class="card"><div class="b w50"></div></div></div></div></div>
+          <div class="wf-main" style="background:var(--surface);border-left:1.5px solid var(--wf-line)">
+            <div class="b w90 h14"></div>
+            <div class="row"><span class="lbl" style="width:34%">Status</span><div class="box" style="flex:1;padding:3px"></div></div>
+            <div class="row"><span class="lbl" style="width:34%">Owner</span><div class="box" style="flex:1;padding:3px"></div></div>
+            <div class="row"><span class="lbl" style="width:34%">Dates</span><div class="box" style="flex:1;padding:3px"></div></div>
+            <div class="row"><span class="lbl" style="width:34%">Labels</span><span class="chipw accent" style="width:18%"></span><span class="chipw" style="width:18%"></span></div>
+            <div class="box" style="height:26px"><span class="lbl">Description</span></div>
+            <span class="lbl">SUBTASKS 1/2</span><div class="b w70"></div>
+            <span class="lbl">COMMENTS · ACTIVITY</span><div class="b w90"></div>
+          </div>
+        </div>
+        <figcaption><b>Task drawer.</b> Slides over any view; the URL carries <span class="mono">?task=id</span> so a task link can be shared. Everything saves as you edit.</figcaption>
+      </figure>
+
+      <figure class="wf-card">
+        <div class="wf wf-phone" role="img" aria-label="Phone layout wireframe">
+          <div class="wf-main">
+            <div class="row"><span class="lbl">☰</span><div class="b w30 h14"></div></div>
+            <div class="b w70 h14"></div>
+            <div class="row"><div class="b" style="width:30%;height:14px"></div><div class="b accent" style="width:30%;height:14px"></div></div>
+            <div class="tabsw"><span>Table</span><span class="on">Kanban</span><span>Time…</span></div>
+            <div class="box"><span class="lbl">filter</span></div>
+            <div class="row" style="flex:1;align-items:stretch"><div class="box col" style="flex:0 0 82%;background:var(--surface-2);border-style:solid;border-color:transparent"><span class="lbl">To do · 4</span><div class="card"><div class="b w90"></div></div><div class="card"><div class="b w70"></div></div><div class="card"><div class="b w50"></div></div></div><div class="box" style="flex:1;background:var(--surface-2);border-style:solid;border-color:transparent"></div></div>
+            <span class="note">swipe between columns · long-press to drag</span>
+          </div>
+        </div>
+        <figcaption><b>Phone.</b> The sidebar becomes a menu, Kanban columns snap one at a time, and the table scrolls sideways.</figcaption>
+      </figure>
+
+      <figure class="wf-card">
+        <div class="wf" role="img" aria-label="Board settings wireframe">
+          <div class="wf-side"><div class="b w70 h14"></div></div>
+          <div class="wf-main" style="align-items:center;justify-content:center;background:color-mix(in srgb, var(--wf-fill) 60%, var(--wf-line))">
+            <div class="box solid" style="width:78%;gap:6px">
+              <div class="row"><b style="font-size:10px">Board settings</b><span style="flex:1"></span><span class="lbl">✕</span></div>
+              <div class="tabsw"><span>Board</span><span class="on">Statuses</span><span>Groups</span><span>Labels</span></div>
+              <div class="row box"><span class="dotc" style="background:var(--p1)"></span><div class="b w50"></div><span class="lbl">WIP –</span><span class="lbl">☐ Done ↑↓</span></div>
+              <div class="row box"><span class="dotc" style="background:#f5a524"></span><div class="b w50"></div><span class="lbl">WIP 4</span><span class="lbl">☐ Done ↑↓</span></div>
+              <div class="row box"><span class="dotc" style="background:var(--p5)"></span><div class="b w30"></div><span class="lbl">WIP –</span><span class="lbl">☑ Done ↑↓</span></div>
+              <div class="row"><div class="box" style="flex:1"></div><div class="b" style="width:24%;height:14px"></div></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Board settings.</b> Rename, recolour or archive a board. Shape its statuses (WIP limit, done flag, order), groups and labels.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="s7">
+    <div class="sec-head"><span class="sec-num">07</span><h2 id="s7">Risks</h2></div>
+    <div class="panel">
+      <table class="tbl">
+        <thead><tr><th>ID</th><th>Risk</th><th>Likelihood / impact</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>R1</td><td>App doesn't match the website because the brand is unknown</td><td>High / Medium</td><td>T1, T7. Every colour and font sits in <span class="mono">client/src/theme.css</span>.</td></tr>
+          <tr><td>R2</td><td>Data loss on a self-hosted box</td><td>Low / High</td><td>T17, T19, T22: daily <span class="mono">npm run backup</span> and a tested restore.</td></tr>
+          <tr><td>R3</td><td>Free hosting terms change</td><td>Medium / Medium</td><td>T2: plain Node + SQLite runs anywhere, with no vendor lock-in.</td></tr>
+          <tr><td>R4</td><td>Team drifts back to Monday.com</td><td>Medium / Medium</td><td>T21: move every active board and run both tools in parallel for two weeks.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="s8">
+    <div class="sec-head"><span class="sec-num">08</span><h2 id="s8">Next 7 days</h2></div>
+    <ul class="checklist">
+      <li><input type="checkbox" id="n1"><label for="n1">Send the innov-8.co.za brand colours (hex), fonts and logo, or allow the domain in the Claude environment's network settings <span class="who">Owner · T1 · critical path</span></label></li>
+      <li><input type="checkbox" id="n2"><label for="n2">Decide where the app runs: office PC or NAS, a small VPS, or a container host <span class="who">Owner · T2 · critical path</span></label></li>
+      <li><input type="checkbox" id="n3"><label for="n3">Export every Monday.com board to CSV or Excel and list the active ones <span class="who">Designer · T3</span></label></li>
+      <li><input type="checkbox" id="n4"><label for="n4">Review this page together: ERD and wireframes. Note anything to change <span class="who">Both · T6</span></label></li>
+      <li><input type="checkbox" id="n5"><label for="n5">Run the app locally (<span class="mono">npm install &amp;&amp; npm run build &amp;&amp; npm start</span>) and plan one real week in it <span class="who">Both</span></label></li>
+      <li><input type="checkbox" id="n6"><label for="n6">Drop the brand values into <span class="mono">client/src/theme.css</span> <span class="who">Designer · T7</span></label></li>
+    </ul>
+  </section>
+
+  <footer>Built from <span class="mono">docs/roadmap-innov8-planner.md</span> v1.0. Ticks on this page are saved in your browser only.</footer>
+</div>
+
+<script>
+  (function () {
+    var boxes = document.querySelectorAll('.checklist input');
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem('i8-plan-next7') || '{}'); } catch (e) {}
+    boxes.forEach(function (b) {
+      b.checked = !!saved[b.id];
+      b.addEventListener('change', function () {
+        saved[b.id] = b.checked;
+        try { localStorage.setItem('i8-plan-next7', JSON.stringify(saved)); } catch (e) {}
+      });
+    });
+  })();
+</script>

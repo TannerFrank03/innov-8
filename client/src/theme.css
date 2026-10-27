@@ -1,0 +1,90 @@
+/*
+ * ─── BRAND THEME ───────────────────────────────────────────────────────────
+ * Every colour, font and radius in the app comes from this file.
+ * To match innov-8.co.za, replace the PLACEHOLDER values below with the
+ * website's brand colours and fonts (and update the Google Fonts link in
+ * client/index.html). No component files need to change.
+ * ──────────────────────────────────────────────────────────────────────────
+ */
+:root {
+  /* PLACEHOLDER brand colours — swap for the website's */
+  --brand: #ff5a1f;          /* primary accent: buttons, active tab, focus */
+  --brand-strong: #e0480f;   /* hover / pressed */
+  --brand-soft: #fff0ea;     /* tinted backgrounds */
+  --on-brand: #ffffff;       /* text on --brand */
+  --ink: #14141c;            /* sidebar + headings */
+
+  /* PLACEHOLDER fonts */
+  --font-display: 'Sora', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+
+  /* Neutrals (warm-grey, biased toward the brand) */
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --surface-2: #f0eeeb;
+  --border: #e3e0dc;
+  --text: #1c1b22;
+  --text-muted: #67646e;
+
+  /* Sidebar */
+  --side-bg: var(--ink);
+  --side-text: #c9c7d1;
+  --side-active: #ffffff;
+  --side-hover: #24242f;
+
+  /* Semantic */
+  --danger: #d93025;
+  --danger-soft: #fdecea;
+  --warning: #b86e00;
+  --warning-soft: #fff4e0;
+  --success: #1f8a4c;
+  --success-soft: #e6f5ec;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 1px 2px rgb(20 20 28 / 6%), 0 4px 14px rgb(20 20 28 / 6%);
+  --shadow-lg: 0 10px 40px rgb(20 20 28 / 18%);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --brand-soft: #3a1d12;
+    --bg: #111117;
+    --surface: #1a1a22;
+    --surface-2: #22222c;
+    --border: #2e2e3a;
+    --text: #ecebf1;
+    --text-muted: #a09eab;
+    --side-bg: #0b0b10;
+    --side-hover: #1c1c26;
+    --danger-soft: #3b1513;
+    --warning: #f0a83a;
+    --warning-soft: #33240b;
+    --success: #4cc27f;
+    --success-soft: #11291b;
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow-lg: 0 10px 40px rgb(0 0 0 / 50%);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --brand-soft: #3a1d12;
+  --bg: #111117;
+  --surface: #1a1a22;
+  --surface-2: #22222c;
+  --border: #2e2e3a;
+  --text: #ecebf1;
+  --text-muted: #a09eab;
+  --side-bg: #0b0b10;
+  --side-hover: #1c1c26;
+  --danger-soft: #3b1513;
+  --warning: #f0a83a;
+  --warning-soft: #33240b;
+  --success: #4cc27f;
+  --success-soft: #11291b;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-lg: 0 10px 40px rgb(0 0 0 / 50%);
+  color-scheme: dark;
+}

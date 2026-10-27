@@ -1,0 +1,14 @@
+services:
+  planner:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Set to 1 when running behind a reverse proxy that terminates HTTPS (Caddy, Nginx, Cloudflare Tunnel)
+      TRUST_PROXY: "1"
+    volumes:
+      - planner-data:/data
+
+volumes:
+  planner-data:
