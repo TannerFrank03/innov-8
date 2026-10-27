@@ -2,13 +2,18 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireOwner } from '../auth.js';
 import { DEFAULT_GROUPS, DEFAULT_LABELS, DEFAULT_STATUSES } from '../db.js';
-import { badRequest, color, id, name, notFound, parse } from '../http.js';
+import { badRequest, color, id, isoDate, name, notFound, parse } from '../http.js';
 import { logActivity } from '../activity.js';
+import { TEMPLATES, offsetDate } from '../templates.js';
 
 const boardBody = z.object({
   name: name(80),
   description: z.string().trim().max(500).default(''),
   color: color.default('#5b5bd6'),
+});
+const createBoardBody = boardBody.extend({
+  template: z.enum(Object.keys(TEMPLATES)).optional(),
+  start_date: isoDate.optional(),
 });
 
 const statusBody = z.object({
@@ -43,26 +48,60 @@ export function boardRoutes(db) {
     res.json(boards);
   });
 
+  r.get('/templates', (_req, res) => {
+    res.json(Object.entries(TEMPLATES).map(([key, t]) => ({ id: key, name: t.name, description: t.description, tasks: t.tasks.length })));
+  });
+
+  // Creates a board in two round trips (board, then everything else as one batch) so it stays fast
+  // against a remote database. A template adds its groups and dated tasks.
   r.post('/boards', async (req, res) => {
-    const body = parse(boardBody, req.body);
-    const boardId = await db.transaction(async (tx) => {
-      const { lastInsertRowid: bid } = await tx.run(
-        'INSERT INTO boards (name, description, color, created_by) VALUES (?, ?, ?, ?)',
-        body.name, body.description, body.color, req.user.id);
-      for (const [i, s] of DEFAULT_STATUSES.entries()) {
-        await tx.run('INSERT INTO statuses (board_id, name, color, position, wip_limit, is_done) VALUES (?, ?, ?, ?, ?, ?)',
-          bid, s.name, s.color, i + 1, s.wip_limit ?? null, s.is_done);
-      }
-      for (const [i, g] of DEFAULT_GROUPS.entries()) {
-        await tx.run('INSERT INTO task_groups (board_id, name, color, position) VALUES (?, ?, ?, ?)', bid, g.name, g.color, i + 1);
-      }
-      for (const l of DEFAULT_LABELS) {
-        await tx.run('INSERT INTO labels (board_id, name, color) VALUES (?, ?, ?)', bid, l.name, l.color);
-      }
-      await logActivity(tx, { boardId: bid, userId: req.user.id, action: 'board.created', detail: { name: body.name } });
-      return bid;
-    });
-    res.status(201).json(await getBoard(boardId));
+    const body = parse(createBoardBody, req.body);
+    const tpl = body.template ? TEMPLATES[body.template] : null;
+    const start = body.start_date ?? new Date().toISOString().slice(0, 10);
+
+    const [{ lastInsertRowid: bid }] = await db.batch([[
+      'INSERT INTO boards (name, description, color, created_by) VALUES (?, ?, ?, ?)',
+      body.name, body.description || tpl?.description || '', body.color, req.user.id,
+    ]]);
+
+    const stmts = [];
+    DEFAULT_STATUSES.forEach((s, i) => stmts.push([
+      'INSERT INTO statuses (board_id, name, color, position, wip_limit, is_done) VALUES (?, ?, ?, ?, ?, ?)',
+      bid, s.name, s.color, i + 1, s.wip_limit ?? null, s.is_done]));
+    (tpl?.groups ?? DEFAULT_GROUPS).forEach((g, i) => stmts.push([
+      'INSERT INTO task_groups (board_id, name, color, position) VALUES (?, ?, ?, ?)', bid, g.name, g.color, i + 1]));
+    DEFAULT_LABELS.forEach((l) => stmts.push(['INSERT INTO labels (board_id, name, color) VALUES (?, ?, ?)', bid, l.name, l.color]));
+
+    if (tpl) {
+      const ownerId = req.user.role === 'owner' ? req.user.id
+        : (await db.get("SELECT id FROM users WHERE role = 'owner' AND active = 1 ORDER BY id LIMIT 1"))?.id ?? null;
+      const designerId = (await db.get("SELECT id FROM users WHERE role = 'member' AND active = 1 ORDER BY id LIMIT 1"))?.id ?? null;
+      // Inside the batch the newest task on this board is the one just inserted.
+      const lastTask = '(SELECT MAX(id) FROM tasks WHERE board_id = ?)';
+      tpl.tasks.forEach((t, i) => {
+        stmts.push([`INSERT INTO tasks (board_id, status_id, group_id, title, description, assignee_id, priority, start_date, due_date, position, created_by)
+          VALUES (?, (SELECT id FROM statuses WHERE board_id = ? ORDER BY position LIMIT 1),
+                  (SELECT id FROM task_groups WHERE board_id = ? AND name = ?), ?, ?, ?, ?, ?, ?, ?, ?)`,
+          bid, bid, bid, t.group, t.title, t.description ?? '', t.who === 'designer' ? designerId : ownerId,
+          t.priority, offsetDate(start, t.start), offsetDate(start, t.due), i + 1, req.user.id]);
+        for (const label of t.labels) {
+          stmts.push([`INSERT INTO task_labels (task_id, label_id) SELECT ${lastTask}, id FROM labels WHERE board_id = ? AND name = ?`,
+            bid, bid, label]);
+        }
+        t.subtasks.forEach((title, j) => stmts.push([
+          `INSERT INTO subtasks (task_id, title, position) VALUES (${lastTask}, ?, ?)`, bid, title, j + 1]));
+      });
+    }
+    stmts.push(['INSERT INTO activity (board_id, user_id, action, detail) VALUES (?, ?, ?, ?)',
+      bid, req.user.id, 'board.created', JSON.stringify({ name: body.name, template: body.template ?? null })]);
+
+    try {
+      await db.batch(stmts);
+    } catch (err) {
+      await db.run('DELETE FROM boards WHERE id = ?', bid).catch(() => {});
+      throw err;
+    }
+    res.status(201).json(await getBoard(bid));
   });
 
   // Everything a board view needs in one round trip.

@@ -17,6 +17,7 @@ Source: `roadmap-innov8-planner.md` (Development handoff). Users: **Owner** (man
 | U9 | As a user, I keep all task detail in one place. | Task drawer: title, status, owner, priority, group, dates, labels, description, subtasks, comments and activity. Start after due is rejected with a clear message. |
 | U10 | As a user, I find things. | Board filter by text, person, label, hide done. Global search across active boards by title/description. |
 | U11 | As a user, I shape a board to the project. | Board settings: rename, recolour, archive/restore; add, rename, recolour, reorder and delete statuses and groups (tasks move to a chosen replacement); WIP limits; done flag; labels. |
+| U13 | As the owner, I start a client website job without retyping the plan. | New board → Start from “Website project (6–8 weeks)” + start date creates groups Discovery/Design/Build/Review/Launch and 14 dated tasks with owners, labels and subtasks. |
 | U12 | As the owner, I keep data safe. | `npm run backup` writes a consistent copy and keeps the newest 30. Deleting a board requires archiving first and is owner-only. |
 
 ## Entity model
@@ -70,8 +71,9 @@ All endpoints are under `/api`, JSON in and out. State-changing requests must se
 | PATCH | /users/:id | name?, color?, role? | 200 User | 400, 403, 404 |
 | DELETE | /users/:id | | 204 | 400, 403 |
 | POST | /me/password | currentPassword, newPassword | 204 | 400 |
+| GET | /templates | | 200 `[{id, name, description, tasks}]` | |
 | GET | /boards | `?archived=1` | 200 Board[] with task/done/overdue counts | |
-| POST | /boards | name, description?, color? | 201 Board | 400 |
+| POST | /boards | name, description?, color?, template?, start_date? | 201 Board | 400 |
 | GET | /boards/:id | | 200 `{board, statuses, groups, labels, tasks}` | 404 |
 | PATCH | /boards/:id | name?, description?, color?, archived? | 200 Board | 400, 404 |
 | DELETE | /boards/:id | | 204 | 400 (not archived), 403 |

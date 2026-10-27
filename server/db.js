@@ -150,6 +150,15 @@ class Db {
     return this.conn.executeMultiple(sql);
   }
 
+  /**
+   * Runs [sql, ...args] statements in one round trip as a single write transaction.
+   * Use for many inserts against a remote database. Returns one result per statement.
+   */
+  async batch(statements) {
+    const results = await this.conn.batch(statements.map(([sql, ...args]) => ({ sql, args })), 'write');
+    return results.map((r) => ({ lastInsertRowid: r.lastInsertRowid == null ? null : Number(r.lastInsertRowid) }));
+  }
+
   /** Runs fn(tx) inside a write transaction; tx has the same methods as Db. */
   async transaction(fn) {
     const tx = await this.conn.transaction('write');

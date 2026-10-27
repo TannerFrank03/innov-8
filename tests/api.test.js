@@ -86,6 +86,35 @@ describe('boards', () => {
   });
 });
 
+describe('templates', () => {
+  it('creates a website project with phases, dated tasks, owners, labels and subtasks', async () => {
+    await owner.post('/api/users').set(H).send({ name: 'Designer', email: 'd@example.com', password: 'password123' }).expect(201);
+    const { body: list } = await owner.get('/api/templates').expect(200);
+    expect(list[0]).toMatchObject({ id: 'website', tasks: 14 });
+
+    const { body: board } = await owner.post('/api/boards').set(H)
+      .send({ name: 'Website - Acme', template: 'website', start_date: '2026-11-02' }).expect(201);
+    const { body } = await owner.get(`/api/boards/${board.id}`).expect(200);
+    expect(body.groups.map((g) => g.name)).toEqual(['Discovery', 'Design', 'Build', 'Review', 'Launch']);
+    expect(body.tasks).toHaveLength(14);
+
+    const byTitle = Object.fromEntries(body.tasks.map((t) => [t.title, t]));
+    const design = body.groups.find((g) => g.name === 'Design');
+    expect(byTitle['Homepage design']).toMatchObject({ start_date: '2026-11-09', due_date: '2026-11-13', group_id: design.id, priority: 'high' });
+    expect(byTitle['Go-live support']).toMatchObject({ start_date: '2026-12-22', due_date: '2026-12-23' });
+    expect(byTitle['Homepage design'].assignee_id).not.toBe(byTitle['Sitemap'].assignee_id);
+    const admin = body.labels.find((l) => l.name === 'Admin');
+    expect(byTitle['Design sign-off'].label_ids).toEqual([admin.id]);
+    expect(byTitle['Final QA'].subtask_count).toBe(5);
+    expect(byTitle['Revisions'].subtask_count).toBe(0);
+    expect(body.tasks.every((t) => t.status_id === body.statuses[0].id)).toBe(true);
+  });
+
+  it('rejects an unknown template', async () => {
+    await owner.post('/api/boards').set(H).send({ name: 'X', template: 'nope' }).expect(400);
+  });
+});
+
 describe('tasks', () => {
   it('stamps completed_at when moved to Done and clears it when moved back', async () => {
     const b = await newBoard();
