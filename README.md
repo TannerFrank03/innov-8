@@ -62,10 +62,10 @@ Any machine that runs Node or Docker works: an office PC, a NAS, or a small VPS.
 2. Put HTTPS in front of it, for example [Caddy](https://caddyserver.com): `planner.innov-8.co.za { reverse_proxy localhost:3000 }`, or use a free Cloudflare Tunnel.
 3. Set `TRUST_PROXY=1` (already set in `docker-compose.yml`) so sign-in cookies are marked Secure.
 
-## Match the website's brand
+## Brand
 
-All colours and fonts live in **`client/src/theme.css`**. The current values are placeholders, because innov-8.co.za could not be reached when this was built.
-Replace `--brand`, `--ink` and the font variables with the website's, update the Google Fonts link in `client/index.html`, then `npm run build`.
+The look matches innov-8.co.za: plum purple (`#3d0f5c`), near-black `#111`, neutral greys, Inter at heavy weights, and pill-shaped buttons.
+All colours and fonts live in **`client/src/theme.css`**; the Innov8 logo is `client/public/innov8-logo.png`.
 
 ## Settings
 

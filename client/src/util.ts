@@ -58,7 +58,7 @@ export const PRIORITIES: { value: Priority; label: string; color: string }[] = [
 ];
 export const priorityInfo = (p: Priority | null) => PRIORITIES.find((x) => x.value === p);
 
-export const SWATCHES = ['#ff5a1f', '#e5484d', '#d6409f', '#8e4ec6', '#5b5bd6', '#0090ff', '#12a594', '#30a46c', '#f5a524', '#8b8d98'];
+export const SWATCHES = ['#8f52c4', '#e5484d', '#d6409f', '#8e4ec6', '#5b5bd6', '#0090ff', '#12a594', '#30a46c', '#f5a524', '#8b8d98'];
 
 /** Readable text colour (dark or white) for a hex background. */
 export function textOn(hex: string): string {
