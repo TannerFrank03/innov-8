@@ -413,3 +413,34 @@ td.due-soon input { color: var(--warning); font-weight: 600; }
 .people-map li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; }
 .people-map label { font-weight: 500; overflow-wrap: anywhere; }
 .preview-list li { padding: 6px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+
+/* Sharing & project IDs */
+.board-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.board-meta .tag { margin-left: 0; }
+.project-id {
+  font: 600 0.78rem/1 var(--font-body); letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+  background: var(--brand-soft); color: var(--brand); border: 0; border-radius: 99px; padding: 5px 10px; cursor: pointer;
+}
+:root[data-theme='dark'] .project-id { color: var(--text); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .project-id { color: var(--text); } }
+.project-id:hover { filter: brightness(0.96); }
+.board-card-code { font: 600 0.72rem/1 var(--font-body); color: var(--text-muted); letter-spacing: 0.04em; margin-left: 6px; }
+.share-id { display: flex; flex-direction: column; gap: 2px; background: var(--surface-2); border-radius: var(--radius); padding: 12px 16px; }
+.share-id b { font-size: 1.3rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.share-row { display: grid; grid-template-columns: minmax(0, 1fr) 190px auto; gap: 12px; align-items: end; }
+.share-btn { margin-bottom: 0; }
+@media (max-width: 600px) { .share-row { grid-template-columns: 1fr; } }
+.link-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.link-row input { flex: 1 1 220px; min-width: 0; font-size: 0.85rem; }
+.link-row .tag { margin-left: 0; }
+.banner-ok { background: var(--success-soft); color: var(--text); display: flex; flex-direction: column; gap: 8px; }
+.banner-info { background: var(--brand-soft); color: var(--text); }
+.select-sm { width: auto !important; min-height: 32px !important; padding: 4px 8px !important; font-size: 0.85rem; }
+.people li { flex-wrap: wrap; }
+.plain-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+.plain-fieldset:disabled select, .plain-fieldset:disabled input, .plain-fieldset:disabled textarea { opacity: 0.75; }
+.auth-switch { text-align: center; font-size: 0.9rem; color: var(--text-muted); }
+.link-btn { background: none; border: 0; padding: 0; color: var(--brand); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+:root[data-theme='dark'] .link-btn { color: var(--brand-strong); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .link-btn { color: var(--brand-strong); } }
+.invite-banner { line-height: 1.45; }

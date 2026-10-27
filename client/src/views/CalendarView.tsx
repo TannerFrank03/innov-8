@@ -6,7 +6,7 @@ import { useBoardCtx } from './BoardPage';
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function CalendarView() {
-  const { data, tasks, openTask, create } = useBoardCtx();
+  const { data, tasks, openTask, create, canEdit } = useBoardCtx();
   const toast = useToast();
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const gridStart = startOfWeek(month);
@@ -47,7 +47,7 @@ export default function CalendarView() {
               <div key={key} role="gridcell" className={`cal-cell${outside ? ' is-outside' : ''}${key === today ? ' is-today' : ''}`}>
                 <div className="cal-day">
                   <span>{d.getDate()}</span>
-                  <button className="cal-add" onClick={() => addOn(key)} aria-label={`Add task due ${key}`}>+</button>
+                  {canEdit && <button className="cal-add" onClick={() => addOn(key)} aria-label={`Add task due ${key}`}>+</button>}
                 </div>
                 {items.map((t) => {
                   const s = data.statuses.find((x) => x.id === t.status_id)!;

@@ -38,7 +38,7 @@ export default function TaskDrawer({ taskId, onClose }: { taskId: number; onClos
 
 function DrawerBody({ taskId, subtasks, comments, activity, onClose }:
   { taskId: number; subtasks: Subtask[]; comments: Comment[]; activity: Activity[]; onClose: () => void }) {
-  const { data, users, update } = useBoardCtx();
+  const { data, users, update, canEdit } = useBoardCtx();
   const task = data.tasks.find((t) => t.id === taskId)!;
   const qc = useQueryClient();
   const toast = useToast();
@@ -74,11 +74,13 @@ function DrawerBody({ taskId, subtasks, comments, activity, onClose }:
 
   return (
     <div className="drawer-body">
-      <textarea id="task-title" className="drawer-title" rows={1} value={title} aria-label="Task name"
+      <textarea id="task-title" className="drawer-title" rows={1} value={title} aria-label="Task name" readOnly={!canEdit}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), (e.target as HTMLTextAreaElement).blur())}
         onBlur={() => { const v = title.trim(); if (v && v !== task.title) update(taskId, { title: v }); else setTitle(task.title); }} />
 
+      {!canEdit && <p className="banner banner-info">You can view this task and comment on it.</p>}
+      <fieldset className="plain-fieldset" disabled={!canEdit}>
       <dl className="props">
         <dt><label htmlFor="d-status">Status</label></dt>
         <dd>
@@ -137,6 +139,7 @@ function DrawerBody({ taskId, subtasks, comments, activity, onClose }:
       </section>
 
       <Subtasks taskId={taskId} items={subtasks} run={run} />
+      </fieldset>
 
       <section className="drawer-section">
         <div className="tabs tabs-sm" role="tablist">
@@ -152,7 +155,7 @@ function DrawerBody({ taskId, subtasks, comments, activity, onClose }:
 
       <footer className="drawer-foot">
         <span className="muted small">Created {timeAgo(task.created_at)}{task.completed_at ? ` · done ${timeAgo(task.completed_at)}` : ''}</span>
-        <ConfirmButton onConfirm={remove} confirmText="Click again to delete">Delete task</ConfirmButton>
+        {canEdit && <ConfirmButton onConfirm={remove} confirmText="Click again to delete">Delete task</ConfirmButton>}
       </footer>
     </div>
   );

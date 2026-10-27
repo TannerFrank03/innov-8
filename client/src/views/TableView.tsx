@@ -5,7 +5,7 @@ import { Avatar, useToast } from '../components/ui';
 import { useBoardCtx } from './BoardPage';
 
 export default function TableView() {
-  const { data, tasks } = useBoardCtx();
+  const { data, tasks, canEdit } = useBoardCtx();
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const toggle = (id: number) => setCollapsed((s) => {
     const n = new Set(s);
@@ -41,7 +41,7 @@ export default function TableView() {
                   </thead>
                   <tbody>
                     {rows.map((t) => <Row key={t.id} task={t} />)}
-                    <AddRow group={g} />
+                    {canEdit && <AddRow group={g} />}
                   </tbody>
                 </table>
               </div>
@@ -54,7 +54,7 @@ export default function TableView() {
 }
 
 function Row({ task }: { task: Task }) {
-  const { data, users, userById, update, openTask } = useBoardCtx();
+  const { data, users, userById, update, openTask, canEdit } = useBoardCtx();
   const status = data.statuses.find((s) => s.id === task.status_id)!;
   const due = relativeDue(task.due_date, !!status?.is_done);
   const labels = data.labels.filter((l) => task.label_ids.includes(l.id));
@@ -69,7 +69,7 @@ function Row({ task }: { task: Task }) {
     <tr className={status?.is_done ? 'is-done' : ''} style={{ ['--c' as string]: status?.color }}>
       <td className="col-title">
         <div className="title-cell">
-          <input id={`title-${task.id}`} className="cell-input" value={title} aria-label="Task name"
+          <input id={`title-${task.id}`} disabled={!canEdit} className="cell-input" value={title} aria-label="Task name"
             onChange={(e) => setTitle(e.target.value)} onBlur={saveTitle}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
           <button className="open-btn" onClick={() => openTask(task.id)} aria-label={`Open ${task.title}`}>
@@ -78,7 +78,7 @@ function Row({ task }: { task: Task }) {
         </div>
       </td>
       <td className="cell-status" style={{ background: status?.color, color: textOn(status?.color ?? '#888888') }}>
-        <select id={`status-${task.id}`} aria-label="Status" value={task.status_id}
+        <select id={`status-${task.id}`} disabled={!canEdit} aria-label="Status" value={task.status_id}
           onChange={(e) => update(task.id, { status_id: Number(e.target.value) })}>
           {data.statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -86,7 +86,7 @@ function Row({ task }: { task: Task }) {
       <td>
         <div className="owner-cell">
           <Avatar user={task.assignee_id ? userById.get(task.assignee_id) : null} size={22} />
-          <select id={`assignee-${task.id}`} aria-label="Owner" value={task.assignee_id ?? ''}
+          <select id={`assignee-${task.id}`} disabled={!canEdit} aria-label="Owner" value={task.assignee_id ?? ''}
             onChange={(e) => update(task.id, { assignee_id: e.target.value ? Number(e.target.value) : null })}>
             <option value="">—</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -94,18 +94,18 @@ function Row({ task }: { task: Task }) {
         </div>
       </td>
       <td>
-        <select id={`priority-${task.id}`} aria-label="Priority" value={task.priority ?? ''}
+        <select id={`priority-${task.id}`} disabled={!canEdit} aria-label="Priority" value={task.priority ?? ''}
           onChange={(e) => update(task.id, { priority: (e.target.value || null) as Task['priority'] })}>
           <option value="">—</option>
           {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
       </td>
       <td>
-        <input id={`start-${task.id}`} type="date" aria-label="Start date" value={task.start_date ?? ''}
+        <input id={`start-${task.id}`} disabled={!canEdit} type="date" aria-label="Start date" value={task.start_date ?? ''}
           max={task.due_date ?? undefined} onChange={(e) => update(task.id, { start_date: e.target.value || null })} />
       </td>
       <td className={due ? `due-${due.tone}` : ''}>
-        <input id={`due-${task.id}`} type="date" aria-label="Due date" value={task.due_date ?? ''}
+        <input id={`due-${task.id}`} disabled={!canEdit} type="date" aria-label="Due date" value={task.due_date ?? ''}
           min={task.start_date ?? undefined} onChange={(e) => update(task.id, { due_date: e.target.value || null })} />
       </td>
       <td>

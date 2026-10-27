@@ -19,6 +19,9 @@ Source: `roadmap-innov8-planner.md` (Development handoff). Users: **Owner** (man
 | U11 | As a user, I shape a board to the project. | Board settings: rename, recolour, archive/restore; add, rename, recolour, reorder and delete statuses and groups (tasks move to a chosen replacement); WIP limits; done flag; labels. |
 | U13 | As the owner, I start a client website job without retyping the plan. | New board → Start from “Website project (6–8 weeks)” + start date creates groups Discovery/Design/Build/Review/Launch and 14 dated tasks with owners, labels and subtasks. |
 | U14 | As the owner, I move a Monday.com board across without retyping it. | New board → Import from Monday.com → choose the “Export board to Excel” file (or CSV). A preview shows groups, items, subitems, updates, how columns map and who each Monday.com person becomes; Import creates the board in one step. Statuses keep their Monday.com names; finished ones (Done, Complete…) count as done. |
+| U15 | As the owner, I share a project with someone outside the studio. | Board → Share: invite by email (existing accounts get access at once; others get a link that adds them when they sign up with that email) or create an invite link, as **Can edit** or **Can view & comment**. The Share window lists the team, shared people (change access, remove) and open invites (copy, cancel). |
+| U16 | As someone invited, I sign up and see only what was shared with me. | Anyone can create an account; new accounts are guests and see only shared projects. Viewers can read and comment; editors can also change tasks and board columns. Only the team can share, rename, archive or delete a project. |
+| U17 | As anyone, I refer to a project by its ID. | Every project has a permanent ID (PRJ-0001). It shows on the board with a copy button, search finds it, and /p/PRJ-0001 opens it. |
 | U12 | As the owner, I keep data safe. | `npm run backup` writes a consistent copy and keeps the newest 30. Deleting a board requires archiving first and is owner-only. |
 
 ## Entity model
@@ -73,6 +76,14 @@ All endpoints are under `/api`, JSON in and out. State-changing requests must se
 | DELETE | /users/:id | | 204 | 400, 403 |
 | POST | /me/password | currentPassword, newPassword | 204 | 400 |
 | POST | /boards/import | name, statuses[], groups[], tasks[] (with subtasks[] and comments[]) | 201 Board | 400 |
+| POST | /auth/register | name, email, password | 201 `{user, joined}` (guest account) | 400, 429 |
+| GET | /boards/code/:code | | 200 `{id}` | 404 |
+| GET | /boards/:id/sharing | | 200 `{board, team, members, invites}` (team only) | 403 |
+| POST | /boards/:id/invites | email?, role (editor/viewer) | 201 `{added}` or `{invite}` | 400, 403 |
+| DELETE | /invites/:id | | 204 (switches the invite off) | 403 |
+| PATCH / DELETE | /boards/:id/members/:userId | role | 204 | 403, 404 |
+| GET | /invites/:token | (no sign-in) | 200 `{board_name, board_code, inviter, role, email}` | 404 |
+| POST | /invites/:token/accept | | 200 `{board_id}` | 403 (other email), 404 |
 | GET | /templates | | 200 `[{id, name, description, tasks}]` | |
 | GET | /boards | `?archived=1` | 200 Board[] with task/done/overdue counts | |
 | POST | /boards | name, description?, color?, template?, start_date? | 201 Board | 400 |

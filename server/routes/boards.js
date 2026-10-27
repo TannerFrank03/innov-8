@@ -5,6 +5,8 @@ import { badRequest, color, id, isoDate, name, notFound, parse } from '../http.j
 import { logActivity } from '../activity.js';
 import { TEMPLATES, offsetDate } from '../templates.js';
 import { buildBoard } from '../boardBuilder.js';
+import { boardPeople, requireBoard, requireTeam, visibleBoards } from '../access.js';
+import { publicUser } from '../auth.js';
 
 const boardBody = z.object({
   name: name(80),
@@ -59,9 +61,22 @@ export function boardRoutes(db) {
     if (!board) throw notFound('Board');
     return board;
   };
+  /** The board, after checking the signed-in user may `need` it (view / comment / edit / manage). */
+  const boardFor = async (req, boardId, need = 'view') => {
+    await requireBoard(db, req.user, boardId, need);
+    return getBoard(boardId);
+  };
+  /** Board id of a status / group / label row, after the same check. */
+  const rowFor = async (req, table, rowId, what, need = 'edit') => {
+    const row = await db.get(`SELECT * FROM ${table} WHERE id = ?`, rowId);
+    if (!row) throw notFound(what);
+    await requireBoard(db, req.user, row.board_id, need);
+    return row;
+  };
 
   r.get('/boards', async (req, res) => {
     const archived = req.query.archived === '1' ? 1 : 0;
+    const [visible, args] = visibleBoards(req.user);
     const boards = await db.all(`
       SELECT b.*,
         (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id) AS task_count,
@@ -69,21 +84,29 @@ export function boardRoutes(db) {
            WHERE t.board_id = b.id AND s.is_done = 1) AS done_count,
         (SELECT COUNT(*) FROM tasks t JOIN statuses s ON s.id = t.status_id
            WHERE t.board_id = b.id AND s.is_done = 0 AND t.due_date < date('now')) AS overdue_count
-      FROM boards b WHERE b.archived = ? ORDER BY b.updated_at DESC`, archived);
+      FROM boards b WHERE b.archived = ? AND ${visible} ORDER BY b.updated_at DESC`, archived, ...args);
     res.json(boards);
+  });
+
+  // Open a project by its ID, e.g. /p/PRJ-0007 in the app.
+  r.get('/boards/code/:code', async (req, res) => {
+    const board = await db.get('SELECT id FROM boards WHERE code = ? COLLATE NOCASE', String(req.params.code).trim());
+    if (!board) throw notFound('Project');
+    await requireBoard(db, req.user, board.id, 'view');
+    res.json({ id: board.id });
   });
 
   r.get('/templates', (_req, res) => {
     res.json(Object.entries(TEMPLATES).map(([key, t]) => ({ id: key, name: t.name, description: t.description, tasks: t.tasks.length })));
   });
 
-  r.post('/boards', async (req, res) => {
+  r.post('/boards', requireTeam, async (req, res) => {
     const body = parse(createBoardBody, req.body);
     const tpl = body.template ? TEMPLATES[body.template] : null;
     let tasks = [];
     if (tpl) {
       const start = body.start_date ?? new Date().toISOString().slice(0, 10);
-      const team = await db.all('SELECT id, role FROM users WHERE active = 1 ORDER BY id');
+      const team = await db.all('SELECT id, role FROM users WHERE active = 1 AND is_guest = 0 ORDER BY id');
       const ownerId = req.user.role === 'owner' ? req.user.id : team.find((u) => u.role === 'owner')?.id ?? null;
       // The designer is the other team member (a Member if there is one).
       const others = team.filter((u) => u.id !== ownerId);
@@ -107,9 +130,9 @@ export function boardRoutes(db) {
     res.status(201).json(await getBoard(bid));
   });
 
-  r.post('/boards/import', async (req, res) => {
+  r.post('/boards/import', requireTeam, async (req, res) => {
     const body = parse(importBody, req.body);
-    const userIds = new Set((await db.all('SELECT id FROM users WHERE active = 1')).map((u) => u.id));
+    const userIds = new Set((await db.all('SELECT id FROM users WHERE active = 1 AND is_guest = 0')).map((u) => u.id));
     for (const t of body.tasks) {
       if (t.assignee_id != null && !userIds.has(t.assignee_id)) throw badRequest(`Unknown person on “${t.title}”.`);
       if (t.start_date && t.due_date && t.start_date > t.due_date) [t.start_date, t.due_date] = [t.due_date, t.start_date];
@@ -130,7 +153,8 @@ export function boardRoutes(db) {
   // Everything a board view needs in one round trip.
   r.get('/boards/:id', async (req, res) => {
     const boardId = id(req.params.id, 'Board');
-    const [board, statuses, groups, labels, tasks] = await Promise.all([
+    const access = await requireBoard(db, req.user, boardId, 'view');
+    const [board, statuses, groups, labels, tasks, people] = await Promise.all([
       getBoard(boardId),
       db.all('SELECT * FROM statuses WHERE board_id = ? ORDER BY position', boardId),
       db.all('SELECT * FROM task_groups WHERE board_id = ? ORDER BY position', boardId),
@@ -142,9 +166,11 @@ export function boardRoutes(db) {
           (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id AND done = 1) AS subtask_done,
           (SELECT COUNT(*) FROM comments WHERE task_id = t.id) AS comment_count
         FROM tasks t WHERE t.board_id = ? ORDER BY t.position`, boardId),
+      boardPeople(db, boardId),
     ]);
     res.json({
-      board, statuses, groups, labels,
+      board, statuses, groups, labels, access,
+      people: people.map((u) => ({ ...publicUser(u), board_role: u.board_role ?? 'team' })),
       tasks: tasks.map(({ label_csv, ...t }) => ({
         ...t,
         label_ids: label_csv ? String(label_csv).split(',').map(Number) : [],
@@ -154,7 +180,7 @@ export function boardRoutes(db) {
 
   r.patch('/boards/:id', async (req, res) => {
     const boardId = id(req.params.id, 'Board');
-    await getBoard(boardId);
+    await boardFor(req, boardId, 'manage');
     const body = parse(boardBody.partial().extend({ archived: z.boolean().optional() }), req.body);
     await db.run(`UPDATE boards SET name = COALESCE(?, name), description = COALESCE(?, description),
       color = COALESCE(?, color), archived = COALESCE(?, archived),
@@ -168,7 +194,7 @@ export function boardRoutes(db) {
   });
 
   // Children are deleted explicitly so this does not depend on foreign-key enforcement.
-  r.delete('/boards/:id', requireOwner, async (req, res) => {
+  r.delete('/boards/:id', requireTeam, requireOwner, async (req, res) => {
     const boardId = id(req.params.id, 'Board');
     const board = await getBoard(boardId);
     if (!board.archived) throw badRequest('Archive the board before deleting it.');
@@ -182,6 +208,8 @@ export function boardRoutes(db) {
       await tx.run('DELETE FROM labels WHERE board_id = ?', boardId);
       await tx.run('DELETE FROM statuses WHERE board_id = ?', boardId);
       await tx.run('DELETE FROM task_groups WHERE board_id = ?', boardId);
+      await tx.run('DELETE FROM board_members WHERE board_id = ?', boardId);
+      await tx.run('DELETE FROM board_invites WHERE board_id = ?', boardId);
       await tx.run('DELETE FROM boards WHERE id = ?', boardId);
     });
     res.status(204).end();
@@ -189,7 +217,7 @@ export function boardRoutes(db) {
 
   r.get('/boards/:id/activity', async (req, res) => {
     const boardId = id(req.params.id, 'Board');
-    await getBoard(boardId);
+    await boardFor(req, boardId, 'view');
     const rows = await db.all(`
       SELECT a.*, u.name AS user_name, t.title AS task_title FROM activity a
       LEFT JOIN users u ON u.id = a.user_id LEFT JOIN tasks t ON t.id = a.task_id
@@ -203,7 +231,7 @@ export function boardRoutes(db) {
 
   r.post('/boards/:id/statuses', async (req, res) => {
     const boardId = id(req.params.id, 'Board');
-    await getBoard(boardId);
+    await boardFor(req, boardId, 'edit');
     const b = parse(statusBody, req.body);
     const { lastInsertRowid } = await db.run(
       'INSERT INTO statuses (board_id, name, color, position, wip_limit, is_done) VALUES (?, ?, ?, ?, ?, ?)',
@@ -213,8 +241,7 @@ export function boardRoutes(db) {
 
   r.patch('/statuses/:id', async (req, res) => {
     const statusId = id(req.params.id, 'Status');
-    const current = await db.get('SELECT * FROM statuses WHERE id = ?', statusId);
-    if (!current) throw notFound('Status');
+    const current = await rowFor(req, 'statuses', statusId, 'Status');
     const b = parse(statusBody.partial(), req.body);
     await db.run('UPDATE statuses SET name = ?, color = ?, position = ?, wip_limit = ?, is_done = ? WHERE id = ?',
       b.name ?? current.name, b.color ?? current.color, b.position ?? current.position,
@@ -225,7 +252,7 @@ export function boardRoutes(db) {
 
   r.post('/boards/:id/groups', async (req, res) => {
     const boardId = id(req.params.id, 'Board');
-    await getBoard(boardId);
+    await boardFor(req, boardId, 'edit');
     const b = parse(groupBody, req.body);
     const { lastInsertRowid } = await db.run('INSERT INTO task_groups (board_id, name, color, position) VALUES (?, ?, ?, ?)',
       boardId, b.name, b.color, b.position ?? (await nextPosition('task_groups', boardId)));
@@ -234,8 +261,7 @@ export function boardRoutes(db) {
 
   r.patch('/groups/:id', async (req, res) => {
     const groupId = id(req.params.id, 'Group');
-    const current = await db.get('SELECT * FROM task_groups WHERE id = ?', groupId);
-    if (!current) throw notFound('Group');
+    const current = await rowFor(req, 'task_groups', groupId, 'Group');
     const b = parse(groupBody.partial(), req.body);
     await db.run('UPDATE task_groups SET name = ?, color = ?, position = ? WHERE id = ?',
       b.name ?? current.name, b.color ?? current.color, b.position ?? current.position, groupId);
@@ -245,8 +271,7 @@ export function boardRoutes(db) {
   // Deleting a status or group moves its tasks to `moveTo` (another one on the same board).
   const deleteWithMove = (table, column, what) => async (req, res) => {
     const rowId = id(req.params.id, what);
-    const row = await db.get(`SELECT * FROM ${table} WHERE id = ?`, rowId);
-    if (!row) throw notFound(what);
+    const row = await rowFor(req, table, rowId, what);
     const siblings = await db.all(`SELECT id FROM ${table} WHERE board_id = ? AND id != ?`, row.board_id, rowId);
     if (siblings.length === 0) throw badRequest(`A board needs at least one ${what.toLowerCase()}.`);
     const moveTo = req.query.moveTo ? Number(req.query.moveTo) : siblings[0].id;
@@ -262,7 +287,7 @@ export function boardRoutes(db) {
 
   r.post('/boards/:id/labels', async (req, res) => {
     const boardId = id(req.params.id, 'Board');
-    await getBoard(boardId);
+    await boardFor(req, boardId, 'edit');
     const b = parse(labelBody, req.body);
     const { lastInsertRowid } = await db.run('INSERT INTO labels (board_id, name, color) VALUES (?, ?, ?)', boardId, b.name, b.color);
     res.status(201).json(await db.get('SELECT * FROM labels WHERE id = ?', lastInsertRowid));
@@ -270,8 +295,7 @@ export function boardRoutes(db) {
 
   r.patch('/labels/:id', async (req, res) => {
     const labelId = id(req.params.id, 'Label');
-    const current = await db.get('SELECT * FROM labels WHERE id = ?', labelId);
-    if (!current) throw notFound('Label');
+    const current = await rowFor(req, 'labels', labelId, 'Label');
     const b = parse(labelBody.partial(), req.body);
     await db.run('UPDATE labels SET name = ?, color = ? WHERE id = ?', b.name ?? current.name, b.color ?? current.color, labelId);
     res.json(await db.get('SELECT * FROM labels WHERE id = ?', labelId));
@@ -279,6 +303,7 @@ export function boardRoutes(db) {
 
   r.delete('/labels/:id', async (req, res) => {
     const labelId = id(req.params.id, 'Label');
+    await rowFor(req, 'labels', labelId, 'Label');
     await db.transaction(async (tx) => {
       await tx.run('DELETE FROM task_labels WHERE label_id = ?', labelId);
       await tx.run('DELETE FROM labels WHERE id = ?', labelId);

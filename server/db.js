@@ -121,6 +121,38 @@ const MIGRATIONS = [
   CREATE INDEX idx_activity_board ON activity(board_id, created_at);
   CREATE INDEX idx_activity_task ON activity(task_id);
   `,
+  // 2: project IDs, guest accounts and per-board sharing.
+  `
+  ALTER TABLE users ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE boards ADD COLUMN code TEXT;
+  UPDATE boards SET code = 'PRJ-' || printf('%04d', id);
+  CREATE UNIQUE INDEX idx_boards_code ON boards(code);
+
+  CREATE TABLE board_members (
+    board_id   INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role       TEXT NOT NULL CHECK (role IN ('editor','viewer')),
+    added_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT ${NOW},
+    PRIMARY KEY (board_id, user_id)
+  );
+  CREATE INDEX idx_board_members_user ON board_members(user_id);
+
+  CREATE TABLE board_invites (
+    id          INTEGER PRIMARY KEY,
+    board_id    INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    token       TEXT NOT NULL UNIQUE,
+    email       TEXT COLLATE NOCASE,
+    role        TEXT NOT NULL CHECK (role IN ('editor','viewer')),
+    created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TEXT NOT NULL DEFAULT ${NOW},
+    accepted_at TEXT,
+    accepted_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    revoked     INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX idx_board_invites_board ON board_invites(board_id);
+  CREATE INDEX idx_board_invites_email ON board_invites(email);
+  `,
 ];
 
 /**

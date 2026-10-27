@@ -5,10 +5,15 @@ import {
   setSessionCookie, verifyPassword, SESSION_COOKIE,
 } from '../auth.js';
 import { HttpError, badRequest, color, id, name, notFound, parse } from '../http.js';
+import { isTeam } from '../access.js';
+import { acceptEmailInvites } from './sharing.js';
 
 const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(200);
 const password = z.string().min(8, 'Use at least 8 characters').max(200);
 const USER_COLORS = ['#5b5bd6', '#d6409f', '#12a594', '#f76b15', '#0090ff', '#e5484d'];
+
+const teamOnly = (req, _res, next) =>
+  next(isTeam(req.user) ? undefined : new HttpError(403, 'Forbidden', 'Only the studio team can do that.'));
 
 export function authRoutes(db) {
   const r = Router();
@@ -35,6 +40,24 @@ export function authRoutes(db) {
     res.status(201).json({ user: publicUser(user) });
   });
 
+  // Anyone can create an account. New accounts are guests: they see only projects shared with them,
+  // and any pending email invites for their address are accepted straight away.
+  r.post('/auth/register', rateLimit({ windowMs: 15 * 60_000, max: 10 }), async (req, res) => {
+    if ((await userCount()) === 0) throw badRequest('Set up the studio owner account first.');
+    const body = parse(z.object({ name: name(80), email, password }), req.body);
+    if (await db.get('SELECT 1 FROM users WHERE email = ?', body.email)) {
+      throw badRequest('An account with that email already exists. Sign in instead.', { email: 'Already registered' });
+    }
+    const pick = USER_COLORS[(await userCount()) % USER_COLORS.length];
+    const { lastInsertRowid } = await db.run(
+      "INSERT INTO users (name, email, password_hash, role, color, is_guest) VALUES (?, ?, ?, 'member', ?, 1)",
+      body.name, body.email, hashPassword(body.password), pick);
+    const user = await getUser(lastInsertRowid);
+    const joined = await acceptEmailInvites(db, user);
+    setSessionCookie(req, res, await createSession(db, user.id));
+    res.status(201).json({ user: publicUser(user), joined });
+  });
+
   r.post('/auth/login', rateLimit({ windowMs: 15 * 60_000, max: 10 }), async (req, res) => {
     const body = parse(z.object({ email, password: z.string().min(1, 'Required') }), req.body);
     const user = await db.get('SELECT * FROM users WHERE email = ? AND active = 1', body.email);
@@ -51,12 +74,17 @@ export function authRoutes(db) {
     res.status(204).end();
   });
 
-  r.get('/users', requireUser, async (_req, res) => {
-    const users = await db.all('SELECT * FROM users WHERE active = 1 ORDER BY id');
+  // The team sees everyone; a guest sees the people on projects shared with them.
+  r.get('/users', requireUser, async (req, res) => {
+    const users = isTeam(req.user)
+      ? await db.all('SELECT * FROM users WHERE active = 1 ORDER BY is_guest, id')
+      : await db.all(`SELECT * FROM users u WHERE u.active = 1 AND (u.id = ? OR u.is_guest = 0 OR u.id IN (
+          SELECT m2.user_id FROM board_members m1 JOIN board_members m2 ON m2.board_id = m1.board_id WHERE m1.user_id = ?))
+          ORDER BY u.is_guest, u.id`, req.user.id, req.user.id);
     res.json(users.map(publicUser));
   });
 
-  r.post('/users', requireUser, requireOwner, async (req, res) => {
+  r.post('/users', requireUser, requireOwner, teamOnly, async (req, res) => {
     const body = parse(
       z.object({ name: name(80), email, password, role: z.enum(['owner', 'member']).default('member') }),
       req.body,
@@ -78,26 +106,39 @@ export function authRoutes(db) {
     const target = await db.get('SELECT * FROM users WHERE id = ? AND active = 1', userId);
     if (!target) throw notFound('User');
     const body = parse(
-      z.object({ name: name(80).optional(), color: color.optional(), role: z.enum(['owner', 'member']).optional() }),
+      z.object({
+        name: name(80).optional(), color: color.optional(), role: z.enum(['owner', 'member']).optional(),
+        guest: z.literal(false).optional(), // promote a guest to the studio team
+      }),
       req.body,
     );
-    if (body.role && req.user.role !== 'owner') throw new HttpError(403, 'Forbidden', 'Only the owner can change roles.');
+    const ownerOnly = body.role !== undefined || body.guest !== undefined;
+    if (ownerOnly && (req.user.role !== 'owner' || !isTeam(req.user))) {
+      throw new HttpError(403, 'Forbidden', 'Only the owner can change roles.');
+    }
     if (body.role === 'member' && target.role === 'owner') {
       const owners = (await db.get("SELECT COUNT(*) AS n FROM users WHERE role = 'owner' AND active = 1")).n;
       if (owners <= 1) throw badRequest('There must always be at least one owner.');
     }
     await db.run('UPDATE users SET name = COALESCE(?, name), color = COALESCE(?, color), role = COALESCE(?, role) WHERE id = ?',
       body.name ?? null, body.color ?? null, body.role ?? null, userId);
+    if (body.guest === false && target.is_guest) {
+      await db.batch([
+        ['UPDATE users SET is_guest = 0 WHERE id = ?', userId],
+        ['DELETE FROM board_members WHERE user_id = ?', userId], // the team sees every board anyway
+      ]);
+    }
     res.json(publicUser(await getUser(userId)));
   });
 
   // Deactivates rather than deletes, so their name stays on old comments and activity.
-  r.delete('/users/:id', requireUser, requireOwner, async (req, res) => {
+  r.delete('/users/:id', requireUser, requireOwner, teamOnly, async (req, res) => {
     const userId = id(req.params.id, 'User');
     if (userId === req.user.id) throw badRequest('You cannot remove your own account.');
     await db.transaction(async (tx) => {
       await tx.run('UPDATE users SET active = 0 WHERE id = ?', userId);
       await tx.run('DELETE FROM sessions WHERE user_id = ?', userId);
+      await tx.run('DELETE FROM board_members WHERE user_id = ?', userId);
       await tx.run('UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?', userId);
     });
     res.status(204).end();

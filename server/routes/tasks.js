@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { badRequest, id, isoDate, name, notFound, parse, forbidden } from '../http.js';
 import { logActivity } from '../activity.js';
 import { checkDateRange, nextCompletedAt } from '../rules.js';
+import { isTeam, requireBoard, visibleBoards } from '../access.js';
 
 const priority = z.enum(['low', 'medium', 'high', 'urgent']).nullable();
 const taskFields = {
@@ -32,14 +33,31 @@ export function taskRoutes(db) {
     if (!task) throw notFound('Task');
     return task;
   };
+  /** The task, after checking the user may `need` its board. Hidden boards look like missing tasks. */
+  const taskFor = async (req, taskId, need) => {
+    const task = await getTask(taskId);
+    try {
+      await requireBoard(db, req.user, task.board_id, need);
+    } catch (err) {
+      throw err.status === 404 ? notFound('Task') : err;
+    }
+    return task;
+  };
+  const subtaskFor = async (req, subId) => {
+    const sub = await db.get('SELECT s.*, t.board_id FROM subtasks s JOIN tasks t ON t.id = s.task_id WHERE s.id = ?', subId);
+    if (!sub) throw notFound('Subtask');
+    await requireBoard(db, req.user, sub.board_id, 'edit');
+    return sub;
+  };
   const statusOf = (boardId, statusId) => db.get('SELECT * FROM statuses WHERE id = ? AND board_id = ?', statusId, boardId);
   const groupOf = (boardId, groupId) => db.get('SELECT * FROM task_groups WHERE id = ? AND board_id = ?', groupId, boardId);
 
   async function assertRefs(boardId, b) {
     if (b.status_id != null && !(await statusOf(boardId, b.status_id))) throw badRequest('Unknown status for this board.', { status_id: 'Unknown status' });
     if (b.group_id != null && !(await groupOf(boardId, b.group_id))) throw badRequest('Unknown group for this board.', { group_id: 'Unknown group' });
-    if (b.assignee_id != null && !(await db.get('SELECT 1 FROM users WHERE id = ? AND active = 1', b.assignee_id))) {
-      throw badRequest('That person is not on the team.', { assignee_id: 'Unknown person' });
+    if (b.assignee_id != null && !(await db.get(`SELECT 1 FROM users u WHERE u.id = ? AND u.active = 1
+        AND (u.is_guest = 0 OR EXISTS (SELECT 1 FROM board_members WHERE board_id = ? AND user_id = u.id))`, b.assignee_id, boardId))) {
+      throw badRequest('That person doesn’t have access to this project.', { assignee_id: 'No access' });
     }
     if (b.label_ids?.length) {
       const unique = [...new Set(b.label_ids)];
@@ -69,6 +87,7 @@ export function taskRoutes(db) {
 
   r.post('/boards/:id/tasks', async (req, res) => {
     const boardId = id(req.params.id, 'Board');
+    await requireBoard(db, req.user, boardId, 'edit');
     if (!(await db.get('SELECT 1 FROM boards WHERE id = ?', boardId))) throw notFound('Board');
     const b = parse(createBody, req.body);
     await assertRefs(boardId, b);
@@ -96,6 +115,7 @@ export function taskRoutes(db) {
 
   r.get('/tasks/:id', async (req, res) => {
     const taskId = id(req.params.id, 'Task');
+    await taskFor(req, taskId, 'view');
     const [task, subtasks, comments, activity] = await Promise.all([
       taskWithMeta(taskId),
       db.all('SELECT * FROM subtasks WHERE task_id = ? ORDER BY position', taskId),
@@ -108,7 +128,7 @@ export function taskRoutes(db) {
 
   r.patch('/tasks/:id', async (req, res) => {
     const taskId = id(req.params.id, 'Task');
-    const current = await getTask(taskId);
+    const current = await taskFor(req, taskId, 'edit');
     const b = parse(updateBody, req.body);
     await assertRefs(current.board_id, b);
     const start = b.start_date !== undefined ? b.start_date : current.start_date;
@@ -149,7 +169,7 @@ export function taskRoutes(db) {
   // Children are deleted explicitly so this does not depend on foreign-key enforcement.
   r.delete('/tasks/:id', async (req, res) => {
     const taskId = id(req.params.id, 'Task');
-    const task = await getTask(taskId);
+    const task = await taskFor(req, taskId, 'edit');
     await db.transaction(async (tx) => {
       await tx.run('DELETE FROM task_labels WHERE task_id = ?', taskId);
       await tx.run('DELETE FROM subtasks WHERE task_id = ?', taskId);
@@ -164,7 +184,7 @@ export function taskRoutes(db) {
   // ---- Subtasks ----
   r.post('/tasks/:id/subtasks', async (req, res) => {
     const taskId = id(req.params.id, 'Task');
-    await getTask(taskId);
+    await taskFor(req, taskId, 'edit');
     const b = parse(z.object({ title: name(200) }), req.body);
     const pos = ((await db.get('SELECT MAX(position) AS p FROM subtasks WHERE task_id = ?', taskId)).p ?? 0) + 1;
     const { lastInsertRowid } = await db.run('INSERT INTO subtasks (task_id, title, position) VALUES (?, ?, ?)', taskId, b.title, pos);
@@ -173,8 +193,7 @@ export function taskRoutes(db) {
 
   r.patch('/subtasks/:id', async (req, res) => {
     const subId = id(req.params.id, 'Subtask');
-    const cur = await db.get('SELECT * FROM subtasks WHERE id = ?', subId);
-    if (!cur) throw notFound('Subtask');
+    const cur = await subtaskFor(req, subId);
     const b = parse(z.object({ title: name(200).optional(), done: z.boolean().optional() }), req.body);
     await db.run('UPDATE subtasks SET title = ?, done = ? WHERE id = ?',
       b.title ?? cur.title, b.done === undefined ? cur.done : Number(b.done), subId);
@@ -182,14 +201,15 @@ export function taskRoutes(db) {
   });
 
   r.delete('/subtasks/:id', async (req, res) => {
-    await db.run('DELETE FROM subtasks WHERE id = ?', id(req.params.id, 'Subtask'));
+    const sub = await subtaskFor(req, id(req.params.id, 'Subtask'));
+    await db.run('DELETE FROM subtasks WHERE id = ?', sub.id);
     res.status(204).end();
   });
 
   // ---- Comments ----
   r.post('/tasks/:id/comments', async (req, res) => {
     const taskId = id(req.params.id, 'Task');
-    const task = await getTask(taskId);
+    const task = await taskFor(req, taskId, 'comment');
     const b = parse(z.object({ body: z.string().trim().min(1, 'Write something first').max(5000) }), req.body);
     const commentId = await db.transaction(async (tx) => {
       const { lastInsertRowid } = await tx.run('INSERT INTO comments (task_id, user_id, body) VALUES (?, ?, ?)', taskId, req.user.id, b.body);
@@ -201,31 +221,41 @@ export function taskRoutes(db) {
 
   r.delete('/comments/:id', async (req, res) => {
     const commentId = id(req.params.id, 'Comment');
-    const c = await db.get('SELECT * FROM comments WHERE id = ?', commentId);
+    const c = await db.get('SELECT c.*, t.board_id FROM comments c JOIN tasks t ON t.id = c.task_id WHERE c.id = ?', commentId);
     if (!c) throw notFound('Comment');
-    if (c.user_id !== req.user.id && req.user.role !== 'owner') throw forbidden('You can only delete your own comments.');
+    await requireBoard(db, req.user, c.board_id, 'comment');
+    const canModerate = isTeam(req.user) && req.user.role === 'owner';
+    if (c.user_id !== req.user.id && !canModerate) throw forbidden('You can only delete your own comments.');
     await db.run('DELETE FROM comments WHERE id = ?', commentId);
     res.status(204).end();
   });
 
   // ---- Cross-board views ----
   r.get('/my-tasks', async (req, res) => {
+    const [visible, args] = visibleBoards(req.user);
     res.json(await db.all(`
-      SELECT t.*, b.name AS board_name, b.color AS board_color, s.name AS status_name, s.color AS status_color
+      SELECT t.*, b.name AS board_name, b.color AS board_color, b.code AS board_code, s.name AS status_name, s.color AS status_color
       FROM tasks t JOIN boards b ON b.id = t.board_id JOIN statuses s ON s.id = t.status_id
-      WHERE t.assignee_id = ? AND s.is_done = 0 AND b.archived = 0
-      ORDER BY t.due_date IS NULL, t.due_date, t.position`, req.user.id));
+      WHERE t.assignee_id = ? AND s.is_done = 0 AND b.archived = 0 AND ${visible}
+      ORDER BY t.due_date IS NULL, t.due_date, t.position`, req.user.id, ...args));
   });
 
   r.get('/search', async (req, res) => {
     const q = String(req.query.q ?? '').trim();
     if (q.length < 2) return res.json([]);
     const like = `%${q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
-    res.json(await db.all(`
-      SELECT t.id, t.title, t.board_id, b.name AS board_name, s.name AS status_name, s.color AS status_color
+    const [visible, args] = visibleBoards(req.user);
+    // Projects first (by name or project ID such as PRJ-0007), then tasks.
+    const boards = await db.all(`
+      SELECT b.id AS board_id, b.name AS title, b.code AS board_code, b.color AS board_color, 'board' AS kind
+      FROM boards b WHERE b.archived = 0 AND ${visible} AND (b.name LIKE ? ESCAPE '\\' OR b.code LIKE ? ESCAPE '\\')
+      ORDER BY b.updated_at DESC LIMIT 5`, ...args, like, like);
+    const tasks = await db.all(`
+      SELECT t.id, t.title, t.board_id, b.name AS board_name, b.code AS board_code, s.name AS status_name, s.color AS status_color, 'task' AS kind
       FROM tasks t JOIN boards b ON b.id = t.board_id JOIN statuses s ON s.id = t.status_id
-      WHERE b.archived = 0 AND (t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')
-      ORDER BY t.updated_at DESC LIMIT 20`, like, like));
+      WHERE b.archived = 0 AND ${visible} AND (t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')
+      ORDER BY t.updated_at DESC LIMIT 20`, ...args, like, like);
+    res.json([...boards, ...tasks]);
   });
 
   return r;

@@ -13,7 +13,7 @@ export default function SettingsPage({ user }: { user: User }) {
       <header className="page-head"><h1>Settings &amp; team</h1></header>
       <Profile user={user} />
       <Appearance />
-      <Team user={user} />
+      {!user.guest && <Team user={user} />}
       <Password />
       <Archived />
     </div>
@@ -75,7 +75,7 @@ function Team({ user }: { user: User }) {
   const toast = useToast();
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'member' });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const isOwner = user.role === 'owner';
+  const isOwner = user.role === 'owner' && !user.guest;
 
   async function add(e: FormEvent) {
     e.preventDefault();
@@ -88,6 +88,13 @@ function Team({ user }: { user: User }) {
     } catch (err) {
       if (err instanceof ApiError) setErrors(err.errors ?? { _: err.message });
     }
+  }
+  async function promote(u: User) {
+    try {
+      await api(`/users/${u.id}`, { method: 'PATCH', body: { guest: false } });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast(`${u.name} is now on the studio team`);
+    } catch (err) { toast(err instanceof Error ? err.message : 'Could not update.', 'error'); }
   }
   async function remove(u: User) {
     try {
@@ -107,7 +114,10 @@ function Team({ user }: { user: User }) {
           <li key={u.id}>
             <Avatar user={u} size={32} />
             <div><b>{u.name}</b>{u.id === user.id && <span className="muted"> (you)</span>}<br /><span className="muted small">{u.email}</span></div>
-            <span className="tag">{u.role === 'owner' ? 'Owner' : 'Member'}</span>
+            <span className="tag">{u.guest ? 'Guest' : u.role === 'owner' ? 'Owner' : 'Member'}</span>
+            {isOwner && u.guest && (
+              <ConfirmButton className="btn btn-sm" confirmText="Sees every board. Confirm?" onConfirm={() => promote(u)}>Make team member</ConfirmButton>
+            )}
             {isOwner && u.id !== user.id && <ConfirmButton className="btn btn-ghost btn-sm text-danger" onConfirm={() => remove(u)}>Remove</ConfirmButton>}
           </li>
         ))}

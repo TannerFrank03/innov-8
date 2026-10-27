@@ -14,6 +14,12 @@ export default function Shell({ user, children }: { user: User; children: ReactN
   const [creating, setCreating] = useState(false);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
 
   async function logout() {
     await api('/auth/logout', { method: 'POST' });
@@ -32,8 +38,8 @@ export default function Shell({ user, children }: { user: User; children: ReactN
           <NavLink to="/settings">Settings &amp; team</NavLink>
         </nav>
         <div className="side-section">
-          <span className="side-title">Boards</span>
-          <button className="side-add" onClick={() => setCreating(true)} aria-label="New board">+</button>
+          <span className="side-title">{user.guest ? 'Shared with you' : 'Boards'}</span>
+          {!user.guest && <button className="side-add" onClick={() => setCreating(true)} aria-label="New board">+</button>}
         </div>
         <nav className="side-boards">
           {boards.data?.map((b: Board) => (
@@ -41,7 +47,7 @@ export default function Shell({ user, children }: { user: User; children: ReactN
               <span className="dot" style={{ background: b.color }} />{b.name}
             </NavLink>
           ))}
-          {boards.data?.length === 0 && <span className="side-empty">No boards yet</span>}
+          {boards.data?.length === 0 && <span className="side-empty">{user.guest ? 'Nothing shared yet' : 'No boards yet'}</span>}
         </nav>
         <div className="side-foot">
           <Avatar user={user} />
@@ -69,16 +75,21 @@ function SearchBox() {
   const navigate = useNavigate();
   return (
     <div className="search" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOpen(false)}>
-      <input id="global-search" type="search" placeholder="Search tasks…" aria-label="Search tasks on all boards"
+      <input id="global-search" type="search" placeholder="Search or PRJ-0001…" aria-label="Search tasks and projects"
         value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
       {open && q.trim().length >= 2 && (
         <div className="search-results">
           {hits.isPending && <span className="muted">Searching…</span>}
           {hits.data?.length === 0 && <span className="muted">No tasks match “{q}”.</span>}
-          {hits.data?.map((h) => (
+          {hits.data?.map((h) => h.kind === 'board' ? (
+            <button key={`b${h.board_id}`} onClick={() => { navigate(`/boards/${h.board_id}`); setOpen(false); setQ(''); }}>
+              <span className="search-title"><span className="dot" style={{ background: h.board_color }} /> {h.title}</span>
+              <span className="search-meta">Project · {h.board_code}</span>
+            </button>
+          ) : (
             <button key={h.id} onClick={() => { navigate(`/boards/${h.board_id}?task=${h.id}`); setOpen(false); setQ(''); }}>
               <span className="search-title">{h.title}</span>
-              <span className="search-meta">{h.board_name} · <Pill color={h.status_color}>{h.status_name}</Pill></span>
+              <span className="search-meta">{h.board_name} · {h.board_code} · <Pill color={h.status_color}>{h.status_name}</Pill></span>
             </button>
           ))}
         </div>

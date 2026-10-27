@@ -8,12 +8,14 @@ import { useBoardCtx } from '../views/BoardPage';
 import { ColorPicker, ConfirmButton, Field, Modal, useToast } from './ui';
 
 export default function BoardSettings({ onClose }: { onClose: () => void }) {
-  const { data } = useBoardCtx();
-  const [tab, setTab] = useState<'board' | 'statuses' | 'groups' | 'labels'>('board');
+  const { data, access } = useBoardCtx();
+  // Renaming, archiving and deleting a project is for the studio team; guests who can edit shape its columns.
+  const tabs = access === 'team' ? (['board', 'statuses', 'groups', 'labels'] as const) : (['statuses', 'groups', 'labels'] as const);
+  const [tab, setTab] = useState<'board' | 'statuses' | 'groups' | 'labels'>(tabs[0]);
   return (
     <Modal title="Board settings" onClose={onClose} wide>
       <div className="tabs tabs-sm" role="tablist">
-        {(['board', 'statuses', 'groups', 'labels'] as const).map((t) => (
+        {tabs.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={`tab${tab === t ? ' is-on' : ''}`} onClick={() => setTab(t)}>
             {t === 'board' ? 'Board' : t[0].toUpperCase() + t.slice(1)}
           </button>

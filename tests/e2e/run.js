@@ -113,8 +113,50 @@ try {
   await page.getByRole('region', { name: 'Working on it' }).getByText('Brand guide').waitFor();
   await page.getByRole('region', { name: 'Done' }).getByText('Business cards').waitFor();
 
+  // 9. Share a project with someone new through a view-only invite link
+  await page.getByRole('link', { name: 'Coffee shop rebrand' }).first().click();
+  await page.getByRole('heading', { name: 'Coffee shop rebrand' }).waitFor();
+  assert.match(await page.locator('.project-id').innerText(), /^PRJ-0001/);
+  await page.getByRole('button', { name: 'Share' }).click();
+  const share = page.getByRole('dialog', { name: 'Share project' });
+  await share.getByLabel('Access for the new link').selectOption('viewer');
+  await share.getByRole('button', { name: 'Create link & copy' }).click();
+  const link = share.getByLabel('Invite link').first();
+  await link.waitFor();
+  const inviteUrl = await link.inputValue();
+  assert.match(inviteUrl, /\/join\/[\w-]+$/);
+  if (shots) await page.screenshot({ path: path.join(shots, 'share-modal.png') });
+  await share.getByRole('button', { name: 'Close' }).click();
+
+  const guestCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const guest = await guestCtx.newPage();
+  guest.on('pageerror', (e) => errors.push(e.message));
+  await guest.goto(inviteUrl);
+  await guest.getByText('invited you to').waitFor();
+  assert.match(await guest.locator('.invite-banner').innerText(), /Tanner invited you to Coffee shop rebrand/);
+  if (shots) await guest.screenshot({ path: path.join(shots, 'invite-signup.png') });
+  await guest.getByLabel('Your name').fill('Client Person');
+  await guest.getByLabel('Email').fill('client@example.com');
+  await guest.getByLabel('Password').fill('password123');
+  await guest.getByRole('button', { name: 'Create account' }).click();
+  await guest.getByRole('heading', { name: 'Coffee shop rebrand' }).waitFor();
+  await guest.getByText('Shared with you · view & comment').waitFor();
+  assert.equal(await guest.getByRole('button', { name: '+ New task' }).count(), 0, 'viewer cannot add tasks');
+  assert.equal(await guest.getByRole('button', { name: 'Share' }).count(), 0, 'guest cannot share');
+  // The guest's menu lists only the shared project.
+  await guest.getByRole('button', { name: 'Open menu' }).click();
+  assert.deepEqual(await guest.locator('.side-boards a').allInnerTexts(), ['Coffee shop rebrand']);
+  await guest.keyboard.press('Escape');
+  if (shots) await guest.screenshot({ path: path.join(shots, 'guest-board.png') });
+  await guestCtx.close();
+
+  // The owner sees them in the share list.
+  await page.getByRole('button', { name: 'Share' }).click();
+  await share.getByText('Client Person').waitFor();
+  await share.getByRole('button', { name: 'Close' }).click();
+
   assert.deepEqual(errors, [], 'no page errors');
-  console.log('E2E passed: setup → board → add → drag → comment → all views → my tasks → Monday.com import');
+  console.log('E2E passed: setup → board → add → drag → comment → all views → my tasks → Monday.com import → share & join as guest');
 
   if (shots) {
     fs.mkdirSync(shots, { recursive: true });

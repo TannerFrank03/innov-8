@@ -1,10 +1,13 @@
 export type Role = 'owner' | 'member';
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
-export interface User { id: number; name: string; email: string; role: Role; color: string }
+export interface User { id: number; name: string; email: string; role: Role; color: string; guest: boolean }
+/** team = studio account (every project); editor / viewer = a guest the project was shared with. */
+export type Access = 'team' | 'editor' | 'viewer';
+export interface Person extends User { board_role: Access }
 
 export interface Board {
-  id: number; name: string; description: string; color: string; archived: number;
+  id: number; code: string; name: string; description: string; color: string; archived: number;
   created_at: string; updated_at: string;
   task_count?: number; done_count?: number; overdue_count?: number;
 }
@@ -19,7 +22,7 @@ export interface Task {
   created_at: string; updated_at: string; completed_at: string | null;
   label_ids: number[]; subtask_count: number; subtask_done: number; comment_count: number;
 }
-export interface BoardData { board: Board; statuses: Status[]; groups: Group[]; labels: Label[]; tasks: Task[] }
+export interface BoardData { board: Board; statuses: Status[]; groups: Group[]; labels: Label[]; tasks: Task[]; access: Access; people: Person[] }
 
 export interface Subtask { id: number; task_id: number; title: string; done: number; position: number }
 export interface Comment { id: number; task_id: number; user_id: number | null; body: string; created_at: string; user_name: string | null; user_color: string | null }
@@ -27,9 +30,19 @@ export interface Activity { id: number; action: string; detail: Record<string, s
 export interface TaskDetail { task: Task; subtasks: Subtask[]; comments: Comment[]; activity: Activity[] }
 
 export interface MyTask extends Omit<Task, 'label_ids' | 'subtask_count' | 'subtask_done' | 'comment_count'> {
-  board_name: string; board_color: string; status_name: string; status_color: string;
+  board_name: string; board_color: string; board_code: string; status_name: string; status_color: string;
 }
-export interface SearchHit { id: number; title: string; board_id: number; board_name: string; status_name: string; status_color: string }
+export type SearchHit =
+  | { kind: 'board'; board_id: number; title: string; board_code: string; board_color: string }
+  | { kind: 'task'; id: number; title: string; board_id: number; board_name: string; board_code: string; status_name: string; status_color: string };
+
+export interface Invite { id: number; token: string; email: string | null; role: 'editor' | 'viewer'; created_at: string }
+export interface Sharing {
+  board: { id: number; name: string; code: string };
+  team: Pick<User, 'id' | 'name' | 'email' | 'color' | 'role'>[];
+  members: (Pick<User, 'id' | 'name' | 'email' | 'color'> & { role: 'editor' | 'viewer' })[];
+  invites: Invite[];
+}
 
 export type TaskPatch = Partial<Pick<Task,
   'title' | 'description' | 'status_id' | 'group_id' | 'assignee_id' | 'priority' | 'start_date' | 'due_date' | 'position' | 'label_ids'>>;

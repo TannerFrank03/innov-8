@@ -15,7 +15,7 @@ const positionBetween = (a?: number, b?: number) =>
   a == null && b == null ? 1 : a == null ? b! - 1 : b == null ? a + 1 : (a + b) / 2;
 
 export default function KanbanView() {
-  const { data, tasks, update } = useBoardCtx();
+  const { data, tasks, update, canEdit } = useBoardCtx();
   const [activeId, setActiveId] = useState<number | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -57,7 +57,7 @@ export default function KanbanView() {
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners}
+    <DndContext sensors={canEdit ? sensors : []} collisionDetection={closestCorners}
       onDragStart={(e: DragStartEvent) => setActiveId(Number(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
       <div className="kanban">
         {data.statuses.map((s) => <Column key={s.id} status={s} tasks={byStatus(s.id)} />)}
@@ -72,7 +72,7 @@ const nextOf = (col: Task[], t: Task) => col[col.findIndex((x) => x.id === t.id)
 
 function Column({ status, tasks }: { status: Status; tasks: Task[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col-${status.id}` });
-  const { create } = useBoardCtx();
+  const { create, canEdit } = useBoardCtx();
   const toast = useToast();
   const [title, setTitle] = useState('');
   const [adding, setAdding] = useState(false);
@@ -101,10 +101,10 @@ function Column({ status, tasks }: { status: Status; tasks: Task[] }) {
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div className="column-body" ref={setNodeRef}>
           {tasks.map((t) => <SortableCard key={t.id} task={t} done={!!status.is_done} />)}
-          {tasks.length === 0 && <div className="column-empty">Drop tasks here</div>}
+          {tasks.length === 0 && <div className="column-empty">{canEdit ? 'Drop tasks here' : 'No tasks'}</div>}
         </div>
       </SortableContext>
-      {adding ? (
+      {!canEdit ? null : adding ? (
         <form onSubmit={add} className="quick-add">
           <input id={`quick-add-${status.id}`} autoFocus value={title} placeholder="Task name, then Enter"
             aria-label={`New task in ${status.name}`} onChange={(e) => setTitle(e.target.value)}

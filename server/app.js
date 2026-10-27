@@ -7,6 +7,7 @@ import { errorHandler, notFound } from './http.js';
 import { authRoutes } from './routes/auth.js';
 import { boardRoutes } from './routes/boards.js';
 import { taskRoutes } from './routes/tasks.js';
+import { publicInviteRoutes, sharingRoutes } from './routes/sharing.js';
 
 export function createApp(db, { staticDir, trustProxy } = {}) {
   const app = express();
@@ -29,7 +30,9 @@ export function createApp(db, { staticDir, trustProxy } = {}) {
   api.use(loadUser(db));
   api.get('/health', (_req, res) => res.json({ ok: true }));
   api.use(authRoutes(db));
+  api.use(publicInviteRoutes(db));
   api.use(requireUser);
+  api.use(sharingRoutes(db));
   api.use(boardRoutes(db));
   api.use(taskRoutes(db));
   api.use((_req, _res, next) => next(notFound('Endpoint')));

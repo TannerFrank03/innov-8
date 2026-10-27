@@ -43,7 +43,7 @@ export function setSessionCookie(req, res, { token, expires }) {
   });
 }
 
-export const publicUser = (u) => u && { id: u.id, name: u.name, email: u.email, role: u.role, color: u.color };
+export const publicUser = (u) => u && { id: u.id, name: u.name, email: u.email, role: u.role, color: u.color, guest: !!u.is_guest };
 
 /** Attaches req.user when a valid session cookie is present. */
 export function loadUser(db) {

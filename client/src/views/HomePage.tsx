@@ -38,7 +38,7 @@ export default function HomePage({ user }: { user: User }) {
           <p className="eyebrow">{new Date().toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           <h1>{greeting}, {user.name.split(' ')[0]}</h1>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>+ New board</button>
+        {!user.guest && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ New board</button>}
       </header>
 
       <section className="summary" aria-label="Your week">
@@ -82,10 +82,15 @@ export default function HomePage({ user }: { user: User }) {
         </section>
 
         <section className="panel" aria-labelledby="boards-h">
-          <h2 id="boards-h">Boards</h2>
+          <h2 id="boards-h">{user.guest ? 'Shared with you' : 'Boards'}</h2>
           {boards.isPending && <Spinner />}
           {boards.isError && <ErrorState error={boards.error} onRetry={() => boards.refetch()} />}
-          {boards.data?.length === 0 && (
+          {boards.data?.length === 0 && user.guest && (
+            <EmptyState title="Nothing shared with you yet">
+              <span>When someone shares a project with you, it appears here. If you have an invite link, open it now.</span>
+            </EmptyState>
+          )}
+          {boards.data?.length === 0 && !user.guest && (
             <EmptyState title="No boards yet">
               <span>Create one board per client or per stream of work.</span>
               <button className="btn btn-primary" onClick={() => setCreating(true)}>Create your first board</button>
@@ -96,7 +101,7 @@ export default function HomePage({ user }: { user: User }) {
               const pct = b.task_count ? Math.round(((b.done_count ?? 0) / b.task_count) * 100) : 0;
               return (
                 <Link key={b.id} to={`/boards/${b.id}`} className="board-card" style={{ ['--c' as string]: b.color }}>
-                  <span className="board-card-name">{b.name}</span>
+                  <span className="board-card-name">{b.name} <span className="board-card-code">{b.code}</span></span>
                   {b.description && <span className="board-card-desc">{b.description}</span>}
                   <span className="progress" aria-label={`${pct}% done`}><span style={{ width: `${pct}%` }} /></span>
                   <span className="board-card-meta">

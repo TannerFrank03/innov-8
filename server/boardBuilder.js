@@ -14,10 +14,12 @@ export async function buildBoard(db, userId, spec) {
   const groups = uniqueNames(spec.groups?.length ? spec.groups : DEFAULT_GROUPS);
   const labels = uniqueNames(spec.labels ?? DEFAULT_LABELS);
 
-  const [{ lastInsertRowid: bid }] = await db.batch([[
-    'INSERT INTO boards (name, description, color, created_by) VALUES (?, ?, ?, ?)',
-    spec.name, spec.description ?? '', spec.color ?? '#8f52c4', userId,
-  ]]);
+  const [{ lastInsertRowid: bid }] = await db.batch([
+    ['INSERT INTO boards (name, description, color, created_by) VALUES (?, ?, ?, ?)',
+      spec.name, spec.description ?? '', spec.color ?? '#8f52c4', userId],
+    // Project ID, e.g. PRJ-0007: stable, shareable and searchable.
+    ["UPDATE boards SET code = 'PRJ-' || printf('%04d', id) WHERE id = last_insert_rowid()"],
+  ]);
 
   const stmts = [];
   statuses.forEach((s, i) => stmts.push([

@@ -7,6 +7,7 @@ Orchestr8 is the innov-8 studio's own planning app. It replaces Monday.com and s
 - **Task detail:** owner, priority, dates, labels, description, subtasks, comments and activity history
 - **Home:** your week at a glance, with overdue and upcoming work across all boards
 - **Import from Monday.com:** bring a board across from its Excel export, with a preview first
+- **Sharing:** invite someone to one project by email or link, as *Can edit* or *Can view & comment*; every project has an ID like `PRJ-0001`
 - **Website project template:** a 6–8 week Discovery → Launch plan in one step
 - Search, filters, light/dark mode, and it works on a phone
 
@@ -50,6 +51,16 @@ If the variables are missing, the API answers with a message saying exactly that
 
 Statuses keep their Monday.com names and become the Kanban columns; Done, Complete and similar count as finished.
 Columns Orchestr8 has no field for are added to each task's description. The file is read in your browser; only the resulting board is sent to the server.
+
+## Share a project
+
+Open the board → **Share**.
+- **Invite by email:** people who already have an account get access straight away. Anyone else gets an invite link to send them; it adds them when they sign up with that email.
+- **Invite link:** anyone with the link joins after signing in or creating an account. Switch it off when you're done.
+- **Access:** *Can edit* (tasks and board columns) or *Can view & comment*. Change or remove access from the same window.
+
+Anyone can create an account from the sign-in page. New accounts are **guests**: they only see projects shared with them.
+The studio team (accounts added under Settings & team) sees every project. The owner can make a guest a team member in Settings & team.
 
 ## Back up
 

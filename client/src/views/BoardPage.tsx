@@ -1,11 +1,12 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useBoard, useCreateTask, useUpdateTask, useUsers } from '../api';
-import { EmptyState, ErrorState, Spinner } from '../components/ui';
+import { useBoard, useCreateTask, useUpdateTask } from '../api';
+import { EmptyState, ErrorState, Spinner, useToast } from '../components/ui';
 import TaskDrawer from '../components/TaskDrawer';
 import BoardSettings from '../components/BoardSettings';
 import ActivityPanel from '../components/ActivityPanel';
-import type { BoardData, Task, TaskPatch, User } from '../types';
+import ShareModal from '../components/ShareModal';
+import type { Access, BoardData, Person, Task, TaskPatch } from '../types';
 import TableView from './TableView';
 import KanbanView from './KanbanView';
 import TimelineView from './TimelineView';
@@ -22,8 +23,10 @@ type ViewId = (typeof VIEWS)[number]['id'];
 interface BoardCtx {
   data: BoardData;
   tasks: Task[]; // after filters
-  users: User[];
-  userById: Map<number, User>;
+  users: Person[]; // everyone who can work on this project
+  userById: Map<number, Person>;
+  access: Access;
+  canEdit: boolean; // false for view-only guests: they can read and comment
   openTask: (id: number) => void;
   update: (id: number, patch: TaskPatch) => void;
   create: (body: TaskPatch & { title: string }) => Promise<Task>;
@@ -37,11 +40,11 @@ export default function BoardPage() {
   const boardId = Number(useParams().boardId);
   const [params, setParams] = useSearchParams();
   const board = useBoard(boardId);
-  const users = useUsers();
+  const toast = useToast();
   const updateM = useUpdateTask(boardId);
   const createM = useCreateTask(boardId);
   const [filters, setFilters] = useState<Filters>({ q: '', assignee: '', label: '', hideDone: false });
-  const [panel, setPanel] = useState<'settings' | 'activity' | null>(null);
+  const [panel, setPanel] = useState<'settings' | 'activity' | 'share' | null>(null);
 
   const view: ViewId = (VIEWS.find((v) => v.id === params.get('view'))?.id ?? readStoredView()) as ViewId;
   const taskParam = params.get('task');
@@ -62,18 +65,20 @@ export default function BoardPage() {
       (!filters.assignee || (filters.assignee === 'none' ? t.assignee_id == null : t.assignee_id === Number(filters.assignee))) &&
       (!filters.label || t.label_ids.includes(Number(filters.label))) &&
       (!filters.hideDone || !doneIds.has(t.status_id)));
-    const list = users.data ?? [];
+    const list = board.data.people ?? [];
     return {
       data: board.data,
       tasks,
       users: list,
       userById: new Map(list.map((u) => [u.id, u])),
+      access: board.data.access,
+      canEdit: board.data.access !== 'viewer',
       openTask: (id) => setParam('task', String(id)),
       update: (id, patch) => updateM.mutate({ id, patch }),
       create: (body) => createM.mutateAsync(body),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board.data, users.data, filters, params]);
+  }, [board.data, filters, params]);
 
   if (board.isPending) return <Spinner label="Loading board" />;
   if (board.isError) return <ErrorState error={board.error} onRetry={() => board.refetch()} />;
@@ -89,16 +94,25 @@ export default function BoardPage() {
             <span className="dot dot-lg" style={{ background: b.color }} />
             <div>
               <h1>{b.name}{b.archived ? <span className="tag">Archived</span> : null}</h1>
-              {b.description && <p className="muted">{b.description}</p>}
+              <div className="board-meta">
+                <button type="button" className="project-id" title="Copy project ID" onClick={() => {
+                  navigator.clipboard?.writeText(b.code).then(() => toast(`Copied ${b.code}`), () => toast(b.code));
+                }}>{b.code} <span aria-hidden>⧉</span></button>
+                {ctx.access !== 'team' && <span className="tag">{ctx.access === 'editor' ? 'Shared with you · can edit' : 'Shared with you · view & comment'}</span>}
+                {b.description && <span className="muted">{b.description}</span>}
+              </div>
             </div>
           </div>
           <div className="board-actions">
+            {ctx.access === 'team' && <button className="btn" onClick={() => setPanel('share')}>Share</button>}
             <button className="btn" onClick={() => setPanel('activity')}>Activity</button>
-            <button className="btn" onClick={() => setPanel('settings')}>Board settings</button>
-            <button className="btn btn-primary" onClick={async () => {
-              const t = await ctx.create({ title: 'New task' });
-              ctx.openTask(t.id);
-            }}>+ New task</button>
+            {ctx.canEdit && <button className="btn" onClick={() => setPanel('settings')}>Board settings</button>}
+            {ctx.canEdit && (
+              <button className="btn btn-primary" onClick={async () => {
+                const t = await ctx.create({ title: 'New task' });
+                ctx.openTask(t.id);
+              }}>+ New task</button>
+            )}
           </div>
         </header>
 
@@ -145,6 +159,7 @@ export default function BoardPage() {
       {openTaskId != null && <TaskDrawer taskId={openTaskId} onClose={() => setParam('task', null)} />}
       {panel === 'settings' && <BoardSettings onClose={() => setPanel(null)} />}
       {panel === 'activity' && <ActivityPanel boardId={boardId} onClose={() => setPanel(null)} />}
+      {panel === 'share' && <ShareModal boardId={boardId} onClose={() => setPanel(null)} />}
     </Ctx.Provider>
   );
 }

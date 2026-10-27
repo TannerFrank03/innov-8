@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { databaseConfig, openDatabase } from './db.js';
 
-export const TABLES = ['users', 'boards', 'statuses', 'task_groups', 'labels', 'tasks', 'task_labels', 'subtasks', 'comments', 'activity'];
+export const TABLES = ['users', 'boards', 'statuses', 'task_groups', 'labels', 'tasks', 'task_labels', 'subtasks', 'comments', 'activity', 'board_members', 'board_invites'];
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
