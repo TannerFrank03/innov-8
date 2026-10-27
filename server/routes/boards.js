@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireOwner } from '../auth.js';
-import { DEFAULT_GROUPS, DEFAULT_LABELS, DEFAULT_STATUSES } from '../db.js';
 import { badRequest, color, id, isoDate, name, notFound, parse } from '../http.js';
 import { logActivity } from '../activity.js';
 import { TEMPLATES, offsetDate } from '../templates.js';
+import { buildBoard } from '../boardBuilder.js';
 
 const boardBody = z.object({
   name: name(80),
@@ -14,6 +14,31 @@ const boardBody = z.object({
 const createBoardBody = boardBody.extend({
   template: z.enum(Object.keys(TEMPLATES)).optional(),
   start_date: isoDate.optional(),
+});
+
+// A board read from a Monday.com export in the browser (see client/src/import/monday.ts).
+const importBody = z.object({
+  name: name(80),
+  description: z.string().trim().max(500).default(''),
+  color: color.default('#8f52c4'),
+  statuses: z.array(z.object({ name: name(40), color, is_done: z.boolean() })).min(1).max(30),
+  groups: z.array(z.object({ name: name(60), color })).min(1).max(100),
+  tasks: z.array(z.object({
+    group: name(60),
+    status: name(40).nullable(),
+    title: name(200),
+    description: z.string().max(20000).default(''),
+    assignee_id: z.number().int().positive().nullable(),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']).nullable(),
+    start_date: isoDate.nullable(),
+    due_date: isoDate.nullable(),
+    subtasks: z.array(z.object({ title: name(200), done: z.boolean() })).max(200).default([]),
+    comments: z.array(z.object({
+      body: z.string().trim().min(1).max(5000),
+      user_id: z.number().int().positive().nullable(),
+      created_at: z.string().datetime().nullable(),
+    })).max(200).default([]),
+  })).max(1500),
 });
 
 const statusBody = z.object({
@@ -52,55 +77,53 @@ export function boardRoutes(db) {
     res.json(Object.entries(TEMPLATES).map(([key, t]) => ({ id: key, name: t.name, description: t.description, tasks: t.tasks.length })));
   });
 
-  // Creates a board in two round trips (board, then everything else as one batch) so it stays fast
-  // against a remote database. A template adds its groups and dated tasks.
   r.post('/boards', async (req, res) => {
     const body = parse(createBoardBody, req.body);
     const tpl = body.template ? TEMPLATES[body.template] : null;
-    const start = body.start_date ?? new Date().toISOString().slice(0, 10);
-
-    const [{ lastInsertRowid: bid }] = await db.batch([[
-      'INSERT INTO boards (name, description, color, created_by) VALUES (?, ?, ?, ?)',
-      body.name, body.description || tpl?.description || '', body.color, req.user.id,
-    ]]);
-
-    const stmts = [];
-    DEFAULT_STATUSES.forEach((s, i) => stmts.push([
-      'INSERT INTO statuses (board_id, name, color, position, wip_limit, is_done) VALUES (?, ?, ?, ?, ?, ?)',
-      bid, s.name, s.color, i + 1, s.wip_limit ?? null, s.is_done]));
-    (tpl?.groups ?? DEFAULT_GROUPS).forEach((g, i) => stmts.push([
-      'INSERT INTO task_groups (board_id, name, color, position) VALUES (?, ?, ?, ?)', bid, g.name, g.color, i + 1]));
-    DEFAULT_LABELS.forEach((l) => stmts.push(['INSERT INTO labels (board_id, name, color) VALUES (?, ?, ?)', bid, l.name, l.color]));
-
+    let tasks = [];
     if (tpl) {
-      const ownerId = req.user.role === 'owner' ? req.user.id
-        : (await db.get("SELECT id FROM users WHERE role = 'owner' AND active = 1 ORDER BY id LIMIT 1"))?.id ?? null;
-      const designerId = (await db.get("SELECT id FROM users WHERE role = 'member' AND active = 1 ORDER BY id LIMIT 1"))?.id ?? null;
-      // Inside the batch the newest task on this board is the one just inserted.
-      const lastTask = '(SELECT MAX(id) FROM tasks WHERE board_id = ?)';
-      tpl.tasks.forEach((t, i) => {
-        stmts.push([`INSERT INTO tasks (board_id, status_id, group_id, title, description, assignee_id, priority, start_date, due_date, position, created_by)
-          VALUES (?, (SELECT id FROM statuses WHERE board_id = ? ORDER BY position LIMIT 1),
-                  (SELECT id FROM task_groups WHERE board_id = ? AND name = ?), ?, ?, ?, ?, ?, ?, ?, ?)`,
-          bid, bid, bid, t.group, t.title, t.description ?? '', t.who === 'designer' ? designerId : ownerId,
-          t.priority, offsetDate(start, t.start), offsetDate(start, t.due), i + 1, req.user.id]);
-        for (const label of t.labels) {
-          stmts.push([`INSERT INTO task_labels (task_id, label_id) SELECT ${lastTask}, id FROM labels WHERE board_id = ? AND name = ?`,
-            bid, bid, label]);
-        }
-        t.subtasks.forEach((title, j) => stmts.push([
-          `INSERT INTO subtasks (task_id, title, position) VALUES (${lastTask}, ?, ?)`, bid, title, j + 1]));
-      });
+      const start = body.start_date ?? new Date().toISOString().slice(0, 10);
+      const team = await db.all('SELECT id, role FROM users WHERE active = 1 ORDER BY id');
+      const ownerId = req.user.role === 'owner' ? req.user.id : team.find((u) => u.role === 'owner')?.id ?? null;
+      // The designer is the other team member (a Member if there is one).
+      const others = team.filter((u) => u.id !== ownerId);
+      const designerId = (others.find((u) => u.role === 'member') ?? others[0])?.id ?? null;
+      tasks = tpl.tasks.map((t) => ({
+        ...t,
+        assignee_id: t.who === 'designer' ? designerId : ownerId,
+        start_date: offsetDate(start, t.start),
+        due_date: offsetDate(start, t.due),
+        subtasks: t.subtasks.map((title) => ({ title })),
+      }));
     }
-    stmts.push(['INSERT INTO activity (board_id, user_id, action, detail) VALUES (?, ?, ?, ?)',
-      bid, req.user.id, 'board.created', JSON.stringify({ name: body.name, template: body.template ?? null })]);
+    const bid = await buildBoard(db, req.user.id, {
+      name: body.name,
+      description: body.description || tpl?.description || '',
+      color: body.color,
+      groups: tpl?.groups,
+      tasks,
+      activity: { template: body.template ?? null },
+    });
+    res.status(201).json(await getBoard(bid));
+  });
 
-    try {
-      await db.batch(stmts);
-    } catch (err) {
-      await db.run('DELETE FROM boards WHERE id = ?', bid).catch(() => {});
-      throw err;
+  r.post('/boards/import', async (req, res) => {
+    const body = parse(importBody, req.body);
+    const userIds = new Set((await db.all('SELECT id FROM users WHERE active = 1')).map((u) => u.id));
+    for (const t of body.tasks) {
+      if (t.assignee_id != null && !userIds.has(t.assignee_id)) throw badRequest(`Unknown person on “${t.title}”.`);
+      if (t.start_date && t.due_date && t.start_date > t.due_date) [t.start_date, t.due_date] = [t.due_date, t.start_date];
+      for (const c of t.comments) if (c.user_id != null && !userIds.has(c.user_id)) c.user_id = null;
     }
+    const bid = await buildBoard(db, req.user.id, {
+      name: body.name,
+      description: body.description,
+      color: body.color,
+      statuses: body.statuses,
+      groups: body.groups,
+      tasks: body.tasks,
+      activity: { imported: 'monday.com', tasks: body.tasks.length },
+    });
     res.status(201).json(await getBoard(bid));
   });
 

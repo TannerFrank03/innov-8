@@ -115,6 +115,47 @@ describe('templates', () => {
   });
 });
 
+describe('Monday.com import', () => {
+  it('creates a board with statuses, groups, tasks, subtasks and comments in one go', async () => {
+    const me = (await owner.get('/api/auth/state')).body.user;
+    const { body: board } = await owner.post('/api/boards/import').set(H).send({
+      name: 'SAICRA (from Monday)',
+      statuses: [{ name: 'To do', color: '#8b8d98', is_done: false }, { name: 'Working on it', color: '#f5a524', is_done: false },
+        { name: 'Done', color: '#30a46c', is_done: true }],
+      groups: [{ name: 'Discovery', color: '#8f52c4' }, { name: 'Design', color: '#0090ff' }],
+      tasks: [
+        { group: 'Discovery', status: 'Done', title: 'Kickoff call', description: 'Agenda in Drive', assignee_id: me.id,
+          priority: 'high', start_date: '2026-11-02', due_date: '2026-11-03', subtasks: [],
+          comments: [{ body: 'Darker palette', user_id: me.id, created_at: '2026-11-02T09:15:00.000Z' }] },
+        { group: 'Discovery', status: 'Working on it', title: 'Sitemap', description: '', assignee_id: null, priority: 'urgent',
+          start_date: '2026-11-05', due_date: '2026-11-03', // reversed dates get swapped
+          subtasks: [{ title: 'Draft', done: true }, { title: 'Sign-off', done: false }],
+          comments: [{ body: 'Someone Else: Added FAQ', user_id: null, created_at: null }] },
+        { group: 'Design', status: null, title: 'Homepage', description: '', assignee_id: null, priority: null,
+          start_date: null, due_date: null, subtasks: [], comments: [] },
+      ],
+    }).expect(201);
+
+    const { body } = await owner.get(`/api/boards/${board.id}`).expect(200);
+    expect(body.statuses.map((s) => [s.name, s.is_done])).toEqual([['To do', 0], ['Working on it', 0], ['Done', 1]]);
+    expect(body.groups.map((g) => g.name)).toEqual(['Discovery', 'Design']);
+    const [kickoff, sitemap, homepage] = body.tasks;
+    expect(kickoff).toMatchObject({ title: 'Kickoff call', assignee_id: me.id, comment_count: 1 });
+    expect(kickoff.completed_at).toBeTruthy();
+    expect(sitemap).toMatchObject({ start_date: '2026-11-03', due_date: '2026-11-05', subtask_count: 2, subtask_done: 1 });
+    expect(homepage.status_id).toBe(body.statuses[0].id);
+    const { body: detail } = await owner.get(`/api/tasks/${kickoff.id}`).expect(200);
+    expect(detail.comments[0]).toMatchObject({ body: 'Darker palette', created_at: '2026-11-02T09:15:00.000Z', user_name: 'Tanner' });
+  });
+
+  it('rejects unknown people and bad input', async () => {
+    const base = { name: 'X', statuses: [{ name: 'To do', color: '#8b8d98', is_done: false }], groups: [{ name: 'G', color: '#8f52c4' }] };
+    const task = { group: 'G', status: null, title: 'T', description: '', assignee_id: 999, priority: null, start_date: null, due_date: null };
+    await owner.post('/api/boards/import').set(H).send({ ...base, tasks: [task] }).expect(400);
+    await owner.post('/api/boards/import').set(H).send({ ...base, statuses: [], tasks: [] }).expect(400);
+  });
+});
+
 describe('tasks', () => {
   it('stamps completed_at when moved to Done and clears it when moved back', async () => {
     const b = await newBoard();

@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import writeXlsxFile from 'write-excel-file/node';
 
 const PORT = 3999;
 const BASE = `http://localhost:${PORT}`;
@@ -92,8 +93,28 @@ try {
   await page.getByRole('link', { name: 'Home' }).click();
   await page.locator('.my-item', { hasText: 'Logo concepts' }).waitFor();
 
+  // 8. Import a Monday.com Excel export
+  const xlsx = path.join(dataDir, 'monday.xlsx');
+  const cells = (rows) => rows.map((r) => r.map((v) => (v === '' ? null : { value: v })));
+  await writeXlsxFile(cells([
+    ['Old Monday board'], [], ['Phase 1'],
+    ['Name', 'Subitems', 'Person', 'Status', 'Date'],
+    ['Brand guide', '', 'Tanner', 'Working on it', '2026-11-20'],
+    ['', 'Subitems', 'Name', 'Status'],
+    ['', '', 'Colours', 'Done'],
+    ['Business cards', '', '', 'Done', '2026-11-10'],
+  ]), { filePath: xlsx });
+  await page.getByRole('button', { name: '+ New board' }).click();
+  await page.getByLabel('Start from').selectOption('monday');
+  await page.setInputFiles('#monday-file', xlsx);
+  await page.getByRole('button', { name: 'Import 2 items' }).click();
+  await page.getByRole('heading', { name: 'Old Monday board' }).waitFor();
+  await page.getByRole('tab', { name: 'Kanban' }).click();
+  await page.getByRole('region', { name: 'Working on it' }).getByText('Brand guide').waitFor();
+  await page.getByRole('region', { name: 'Done' }).getByText('Business cards').waitFor();
+
   assert.deepEqual(errors, [], 'no page errors');
-  console.log('E2E passed: setup → board → add → drag → comment → all views → my tasks');
+  console.log('E2E passed: setup → board → add → drag → comment → all views → my tasks → Monday.com import');
 
   if (shots) {
     fs.mkdirSync(shots, { recursive: true });

@@ -6,6 +6,8 @@ Orchestr8 is the innov-8 studio's own planning app. It replaces Monday.com and s
 - **Four views of the same tasks:** Table, Kanban (drag-and-drop with WIP limits), Timeline and Calendar
 - **Task detail:** owner, priority, dates, labels, description, subtasks, comments and activity history
 - **Home:** your week at a glance, with overdue and upcoming work across all boards
+- **Import from Monday.com:** bring a board across from its Excel export, with a preview first
+- **Website project template:** a 6–8 week Discovery → Launch plan in one step
 - Search, filters, light/dark mode, and it works on a phone
 
 ## Run it
@@ -39,6 +41,15 @@ Vercel can't keep files between requests, so online the data lives in [Turso](ht
 If the variables are missing, the API answers with a message saying exactly that.
 
 > Vercel's free Hobby plan is for personal, non-commercial use. For business use Vercel expects the Pro plan.
+
+## Move boards from Monday.com
+
+1. In Monday.com, open the board → **⋯ → More actions → Export board to Excel**. Tick **Include updates** and **Include subitems**.
+2. In Orchestr8: **+ New board → Start from: Import from Monday.com**, and choose the file (.xlsx, or .csv).
+3. Check the preview (groups, items, subitems, updates, column matching, and who each Monday.com person becomes), then **Import**.
+
+Statuses keep their Monday.com names and become the Kanban columns; Done, Complete and similar count as finished.
+Columns Orchestr8 has no field for are added to each task's description. The file is read in your browser; only the resulting board is sent to the server.
 
 ## Back up
 

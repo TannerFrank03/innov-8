@@ -18,6 +18,7 @@ Source: `roadmap-innov8-planner.md` (Development handoff). Users: **Owner** (man
 | U10 | As a user, I find things. | Board filter by text, person, label, hide done. Global search across active boards by title/description. |
 | U11 | As a user, I shape a board to the project. | Board settings: rename, recolour, archive/restore; add, rename, recolour, reorder and delete statuses and groups (tasks move to a chosen replacement); WIP limits; done flag; labels. |
 | U13 | As the owner, I start a client website job without retyping the plan. | New board → Start from “Website project (6–8 weeks)” + start date creates groups Discovery/Design/Build/Review/Launch and 14 dated tasks with owners, labels and subtasks. |
+| U14 | As the owner, I move a Monday.com board across without retyping it. | New board → Import from Monday.com → choose the “Export board to Excel” file (or CSV). A preview shows groups, items, subitems, updates, how columns map and who each Monday.com person becomes; Import creates the board in one step. Statuses keep their Monday.com names; finished ones (Done, Complete…) count as done. |
 | U12 | As the owner, I keep data safe. | `npm run backup` writes a consistent copy and keeps the newest 30. Deleting a board requires archiving first and is owner-only. |
 
 ## Entity model
@@ -71,6 +72,7 @@ All endpoints are under `/api`, JSON in and out. State-changing requests must se
 | PATCH | /users/:id | name?, color?, role? | 200 User | 400, 403, 404 |
 | DELETE | /users/:id | | 204 | 400, 403 |
 | POST | /me/password | currentPassword, newPassword | 204 | 400 |
+| POST | /boards/import | name, statuses[], groups[], tasks[] (with subtasks[] and comments[]) | 201 Board | 400 |
 | GET | /templates | | 200 `[{id, name, description, tasks}]` | |
 | GET | /boards | `?archived=1` | 200 Board[] with task/done/overdue counts | |
 | POST | /boards | name, description?, color?, template?, start_date? | 201 Board | 400 |

@@ -1,5 +1,5 @@
 # Roadmap: Orchestr8, the innov-8 planner (self-hosted Monday.com + Kanban replacement)
-- Version: 1.0 | Date: 2026-10-27
+- Version: 1.1 | Date: 2026-10-27
 - Source research: research-innov8-planner.md
 - Goal: Move the Owner and Designer off Monday.com and separate Kanban boards onto one self-owned planning app, at R0/month subscription, by 11 Dec 2026.
 - Success metrics: (1) all active projects live in the new app; (2) Monday.com subscription cancelled; (3) both users plan the week in it for 2 weeks without falling back; (4) restore from backup tested once.
@@ -29,13 +29,13 @@
 ## Tasks
 | ID | Phase | Task | Owner | Estimate | Start | End | Depends on | Status |
 |----|-------|------|-------|----------|-------|-----|------------|--------|
-| T1 | P1 | Supply brand colours, fonts, logo (or allow innov-8.co.za in environment network settings) | Owner | 1d | 2026-10-28 | 2026-10-28 | - | todo |
-| T2 | P1 | Choose hosting: own machine/NAS, small VPS, or container host | Owner | 1d | 2026-10-28 | 2026-10-29 | - | todo |
+| T1 | P1 | Supply brand colours, fonts, logo (or allow innov-8.co.za in environment network settings) | Owner | 1d | 2026-10-28 | 2026-10-28 | - | done |
+| T2 | P1 | Choose hosting: own machine/NAS, small VPS, or container host (chosen: Vercel + Turso) | Owner | 1d | 2026-10-28 | 2026-10-29 | - | done |
 | T3 | P1 | Export current Monday.com boards to CSV/Excel; list active boards | Designer | 2d | 2026-10-28 | 2026-10-30 | - | todo |
 | T4 | P2 | High-level ERD (users, boards, statuses, groups, tasks, labels, comments, subtasks, activity) | Claude | 1d | 2026-10-28 | 2026-10-28 | - | done |
 | T5 | P2 | Low-fidelity wireframes: login, dashboard, board (4 views), task drawer | Claude | 2d | 2026-10-28 | 2026-10-29 | - | done |
 | T6 | P2 | Review ERD + wireframes, mark changes | Owner + Designer | 2d | 2026-10-30 | 2026-11-02 | T4, T5 | todo |
-| T7 | P2 | Populate theme tokens from brand (single CSS file) | Designer | 1d | 2026-11-03 | 2026-11-04 | T1, T6 | todo |
+| T7 | P2 | Populate theme tokens from brand (single CSS file) | Designer | 1d | 2026-11-03 | 2026-11-04 | T1, T6 | done |
 | T8 | P3 | Server: Express API, SQLite schema + migrations, seed data | Claude | 3d | 2026-11-02 | 2026-11-04 | T4 | done |
 | T9 | P3 | Auth: login, sessions, password hashing, first-run admin setup | Claude | 2d | 2026-11-04 | 2026-11-05 | T8 | done |
 | T10 | P3 | Dashboard: board list, create/archive board, "My tasks" | Claude | 2d | 2026-11-05 | 2026-11-06 | T9 | done |
@@ -47,8 +47,8 @@
 | T16 | P3 | Board settings: statuses (colour, WIP), groups, labels, team users | Claude | 2d | 2026-11-17 | 2026-11-18 | T15 | done |
 | T17 | P3 | Docker + backup script + README run instructions (Docker image written but not yet built: no Docker daemon in the build environment) | Claude | 1d | 2026-11-19 | 2026-11-19 | T8 | done |
 | T18 | P3 | Smoke test all Must features; fix defects | Claude | 1d | 2026-11-20 | 2026-11-20 | T13-T17 | done |
-| T19 | P4 | Deploy to chosen host; set up HTTPS and daily backup | Owner | 2d | 2026-11-23 | 2026-11-24 | T2, T17, T18 | todo |
-| T20 | P4 | CSV import tool for Monday.com exports (Should) | Claude | 2d | 2026-11-23 | 2026-11-24 | T3, T18 | todo |
+| T19 | P4 | Deploy to chosen host; set up HTTPS and daily backup (deployed; daily backup still to automate) | Owner | 2d | 2026-11-23 | 2026-11-24 | T2, T17, T18 | in progress |
+| T20 | P4 | Import tool for Monday.com exports (.xlsx and .csv) (Should) | Claude | 2d | 2026-11-23 | 2026-11-24 | T3, T18 | done |
 | T21 | P4 | Migrate active boards; run both tools in parallel | Owner + Designer | 7d | 2026-11-25 | 2026-12-03 | T19, T20 | todo |
 | T22 | P4 | Test restore from backup | Owner | 1d | 2026-12-04 | 2026-12-04 | T19 | todo |
 | T23 | P5 | Final Monday.com export archived; cancel subscription | Owner | 1d | 2026-12-07 | 2026-12-11 | G3 | todo |

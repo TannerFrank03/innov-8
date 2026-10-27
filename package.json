@@ -38,9 +38,11 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.6",
+    "read-excel-file": "^5.8.8",
     "supertest": "^7.3.1",
     "typescript": "^5.9.3",
     "vite": "^6.4.5",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "write-excel-file": "^2.3.10"
   }
 }
