@@ -13,7 +13,7 @@ const BASE = `http://localhost:${PORT}`;
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i8-e2e-'));
 const shots = process.env.SCREENSHOT_DIR;
 
-const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.js'], {
+const server = spawn(process.execPath, ['server/index.js'], {
   env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir },
   stdio: ['ignore', 'pipe', 'inherit'],
 });

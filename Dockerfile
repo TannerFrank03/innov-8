@@ -17,4 +17,4 @@ COPY --from=build /app/dist ./dist
 VOLUME /data
 EXPOSE 3000
 USER node
-CMD ["node", "--disable-warning=ExperimentalWarning", "server/index.js"]
+CMD ["node", "server/index.js"]

@@ -1,4 +1,3 @@
-import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -124,34 +123,90 @@ const MIGRATIONS = [
   `,
 ];
 
-export function openDatabase(file) {
-  if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
-  const db = new DatabaseSync(file);
-  db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
-  migrate(db);
+/**
+ * Thin async wrapper over libSQL so routes read like plain SQL.
+ * Works with a local file (file:data/planner.db) or a Turso database (libsql://…).
+ */
+class Db {
+  constructor(conn) {
+    this.conn = conn;
+  }
+
+  async all(sql, ...args) {
+    const res = await this.conn.execute({ sql, args });
+    return res.rows.map((row) => Object.fromEntries(res.columns.map((c, i) => [c, row[i]])));
+  }
+
+  async get(sql, ...args) {
+    return (await this.all(sql, ...args))[0];
+  }
+
+  async run(sql, ...args) {
+    const res = await this.conn.execute({ sql, args });
+    return { lastInsertRowid: res.lastInsertRowid == null ? null : Number(res.lastInsertRowid), changes: res.rowsAffected };
+  }
+
+  exec(sql) {
+    return this.conn.executeMultiple(sql);
+  }
+
+  /** Runs fn(tx) inside a write transaction; tx has the same methods as Db. */
+  async transaction(fn) {
+    const tx = await this.conn.transaction('write');
+    try {
+      const result = await fn(new Db(tx));
+      await tx.commit();
+      return result;
+    } catch (err) {
+      await tx.rollback().catch(() => {});
+      throw err;
+    } finally {
+      tx.close();
+    }
+  }
+}
+
+/**
+ * Opens the database and applies any pending migrations.
+ * `url` is "file:<path>" for a local file or "libsql://…" for Turso (with authToken).
+ */
+export async function openDatabase({ url, authToken } = {}) {
+  const local = url.startsWith('file:');
+  if (local) fs.mkdirSync(path.dirname(url.slice(5)), { recursive: true });
+  // Remote databases use the pure-HTTP client, so serverless hosts need no native binary.
+  const { createClient } = local ? await import('@libsql/client') : await import('@libsql/client/web');
+  const db = new Db(createClient({ url, authToken }));
+  if (local) await db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
+  await migrate(db);
   return db;
 }
 
-function migrate(db) {
-  const { user_version: current } = db.prepare('PRAGMA user_version').get();
-  for (let v = current; v < MIGRATIONS.length; v++) {
-    transaction(db, () => {
-      db.exec(MIGRATIONS[v]);
-      db.exec(`PRAGMA user_version = ${v + 1}`);
+async function migrate(db) {
+  await db.exec('CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const done = new Set((await db.all('SELECT version FROM _migrations')).map((r) => r.version));
+  // Databases created before _migrations existed already have the v1 schema.
+  if (!done.has(1) && (await db.get("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'"))) {
+    await db.run('INSERT INTO _migrations (version, applied_at) VALUES (1, ?)', new Date().toISOString());
+    done.add(1);
+  }
+  for (let v = 1; v <= MIGRATIONS.length; v++) {
+    if (done.has(v)) continue;
+    await db.transaction(async (tx) => {
+      await tx.exec(MIGRATIONS[v - 1]);
+      await tx.run('INSERT INTO _migrations (version, applied_at) VALUES (?, ?)', v, new Date().toISOString());
     });
   }
 }
 
-export function transaction(db, fn) {
-  db.exec('BEGIN');
-  try {
-    const result = fn();
-    db.exec('COMMIT');
-    return result;
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
+/** Resolves the database location from the environment. */
+export function databaseConfig(defaultFile) {
+  if (process.env.TURSO_DATABASE_URL) {
+    return { url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN };
   }
+  if (!defaultFile) {
+    throw new Error('Database not configured. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in the environment.');
+  }
+  return { url: `file:${defaultFile}` };
 }
 
 export const DEFAULT_STATUSES = [

@@ -20,17 +20,17 @@ export function verifyPassword(password, stored) {
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
-export function createSession(db, userId) {
+export async function createSession(db, userId) {
   const token = crypto.randomBytes(32).toString('base64url');
   const expires = new Date(Date.now() + SESSION_DAYS * 86400_000);
-  db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(
-    sha256(token), userId, expires.toISOString(),
-  );
+  await db.run('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)', sha256(token), userId, expires.toISOString());
+  // Opportunistic cleanup of expired sessions.
+  await db.run('DELETE FROM sessions WHERE expires_at < ?', new Date().toISOString());
   return { token, expires };
 }
 
-export function destroySession(db, token) {
-  if (token) db.prepare('DELETE FROM sessions WHERE id = ?').run(sha256(token));
+export async function destroySession(db, token) {
+  if (token) await db.run('DELETE FROM sessions WHERE id = ?', sha256(token));
 }
 
 export function setSessionCookie(req, res, { token, expires }) {
@@ -47,12 +47,12 @@ export const publicUser = (u) => u && { id: u.id, name: u.name, email: u.email, 
 
 /** Attaches req.user when a valid session cookie is present. */
 export function loadUser(db) {
-  const find = db.prepare(`
-    SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
-    WHERE s.id = ? AND s.expires_at > ? AND u.active = 1`);
-  return (req, _res, next) => {
+  return async (req, _res, next) => {
     const token = req.cookies?.[SESSION_COOKIE];
-    req.user = token ? find.get(sha256(token), new Date().toISOString()) ?? null : null;
+    req.user = token
+      ? (await db.get(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
+          WHERE s.id = ? AND s.expires_at > ? AND u.active = 1`, sha256(token), new Date().toISOString())) ?? null
+      : null;
     next();
   };
 }

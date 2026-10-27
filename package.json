@@ -5,22 +5,24 @@
   "description": "Self-hosted planning app for Innov-8: boards with Table, Kanban, Timeline and Calendar views.",
   "type": "module",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
-    "dev:server": "node --disable-warning=ExperimentalWarning --watch-path=server server/index.js",
+    "dev:server": "node --watch-path=server server/index.js",
     "dev:client": "vite",
     "build": "tsc -p client && vite build",
-    "start": "node --disable-warning=ExperimentalWarning server/index.js",
-    "seed": "node --disable-warning=ExperimentalWarning server/seed.js",
-    "backup": "node --disable-warning=ExperimentalWarning server/backup.js",
+    "start": "node server/index.js",
+    "seed": "node server/seed.js",
+    "backup": "node server/backup.js",
     "test": "vitest run",
-    "test:e2e": "node --disable-warning=ExperimentalWarning tests/e2e/run.js"
+    "test:e2e": "node tests/e2e/run.js",
+    "restore": "node server/restore.js"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.15",
     "cookie-parser": "^1.4.7",
-    "express": "^4.22.3",
+    "express": "^5.3.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

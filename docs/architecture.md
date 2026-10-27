@@ -1,6 +1,9 @@
 # Architecture
 
-One Node.js process serves both the API and the built React app, and keeps all data in one SQLite file. There is nothing to pay for and nothing else to run.
+The same code runs two ways:
+
+- **Vercel:** the built React app is served from Vercel's CDN, `/api/*` runs `api/index.js` as a serverless function, and data lives in a Turso (hosted SQLite) database.
+- **Self-hosted:** one Node.js process serves both the API and the React app, and keeps data in a local SQLite file.
 
 ```mermaid
 flowchart LR
@@ -19,29 +22,31 @@ flowchart LR
     MW --> R1 & R2 & R3
     R3 --> RULES
   end
-  DB[(data/planner.db<br/>SQLite, WAL)]
-  BK[[backups/planner-*.db<br/>npm run backup]]
+  DB[(SQLite via libSQL<br/>Turso on Vercel · data/planner.db locally)]
+  BK[[backups/planner-*.json<br/>npm run backup]]
   RQ -- "fetch /api (JSON, cookie)" --> MW
   UI -- "GET /" --> ST
   R1 & R2 & R3 --> DB
-  DB -. "VACUUM INTO" .-> BK
+  DB -. "JSON export" .-> BK
 ```
 
 ## Decisions
 
 | Decision | Why |
 |---|---|
-| Node + Express + `node:sqlite` (built into Node 22) | No native modules to compile, no database server, runs on any machine with Node 22.13+ or Docker. |
+| Node + Express 5 + libSQL (`@libsql/client`) | One SQLite schema for both a local file and Turso. Remote connections use libSQL's HTTP client, so Vercel needs no native binary. |
+| Explicit child deletes instead of relying on `ON DELETE CASCADE` | Behaves the same whether or not the database enforces foreign keys. |
+| Migrations tracked in a `_migrations` table | Applied automatically on start (or the first request after a Vercel deploy). |
 | React + TypeScript + Vite, React Query, dnd-kit | Fast typed UI; React Query gives optimistic drag-and-drop with rollback on error; dnd-kit supports mouse, touch and keyboard. |
 | Plain CSS with tokens in `client/src/theme.css` | The brand can be swapped in one file once the innov-8.co.za colours and fonts are confirmed. |
 | Cookie sessions (httpOnly, SameSite=Lax, token stored hashed) + required `X-Requested-With` header | Simple, secure sign-in for a small team; the header blocks cross-site form posts. |
 | Fractional `position` on tasks | A drop only updates the moved task. |
-| Migrations in `server/db.js` keyed on `PRAGMA user_version` | Upgrades run automatically on start. |
 
 ## Folder layout
 
 ```
-server/        API (Express), schema & migrations, rules, seed, backup
+api/           Vercel serverless entry (wraps the Express app)
+server/        API (Express), schema & migrations, rules, seed, backup, restore
 client/        React app (Vite root); theme.css holds the brand
 tests/         Vitest API + rules tests; e2e/run.js Playwright happy path
 docs/          research brief, roadmap, spec, architecture, planning page

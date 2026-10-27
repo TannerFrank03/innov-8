@@ -10,7 +10,7 @@ Your own planning app for the Innov-8 studio. It replaces Monday.com and separat
 
 ## Run it
 
-You need **Node.js 22.13 or newer** ([nodejs.org](https://nodejs.org)).
+You need **Node.js 20 or newer** ([nodejs.org](https://nodejs.org)). Run locally, the data lives in `data/planner.db`.
 
 ```bash
 npm install
@@ -22,34 +22,45 @@ The first visit asks you to create the owner account. Then add your designer und
 
 To try it with example data first: `npm run seed` (before first sign-in), then sign in as `owner@example.com` / `changeme123`.
 
-### With Docker
+## Deploy to Vercel (with a free Turso database)
 
-```bash
-docker compose up -d --build    # http://localhost:3000, data kept in the "planner-data" volume
-```
+Vercel can't keep files between requests, so online the data lives in [Turso](https://turso.tech) (hosted SQLite, free tier: 5 GB, 500M row reads a month).
+
+1. **Create the database.** Sign up at [app.turso.tech](https://app.turso.tech), create a database (pick a region near you, e.g. Europe), open it and copy:
+   - the **Database URL** (starts with `libsql://`)
+   - a new **Token** (Generate Token → read & write)
+2. **Add them to Vercel.** Project → Settings → Environment Variables, for Production (and Preview if you like):
+   - `TURSO_DATABASE_URL` = the `libsql://…` URL
+   - `TURSO_AUTH_TOKEN` = the token
+3. **Redeploy** (Deployments → ⋯ → Redeploy). The tables are created automatically on the first request.
+4. Open the site. The first visit asks you to create the owner account; then add your designer under **Settings & team**.
+
+`vercel.json` already tells Vercel how to build: the React app is served from `dist/`, and `/api/*` runs `api/index.js` as a serverless function.
+If the variables are missing, the API answers with a message saying exactly that.
+
+> Vercel's free Hobby plan is for personal, non-commercial use. For business use Vercel expects the Pro plan.
 
 ## Back up
 
-All data is one file: `data/planner.db`.
-
 ```bash
-npm run backup        # writes backups/planner-<timestamp>.db, keeps the newest 30
+npm run backup        # writes backups/planner-<timestamp>.json, keeps the newest 30
 ```
 
-Schedule it daily: on Linux/macOS, `crontab -e` and add
+To back up the **live Vercel data**, run it on your computer with the Turso values set:
+`TURSO_DATABASE_URL=libsql://… TURSO_AUTH_TOKEN=… npm run backup`. Turso also keeps 1 day of point-in-time restore on the free plan.
+
+To restore into an empty database: `npm run restore -- backups/planner-<timestamp>.json` (add the Turso variables to restore online).
+
+To schedule a local backup daily on Linux/macOS, `crontab -e` and add
 `0 18 * * * cd /path/to/innov-8 && npm run backup`. On Windows use Task Scheduler.
 
-To restore, stop the app, copy a backup over `data/planner.db`, and start it again.
+## Or host it yourself
 
-## Put it online for both of you
+Any machine that runs Node or Docker works: an office PC, a NAS, or a small VPS. Without the Turso variables it uses the local file.
 
-Any machine that runs Node or Docker works: an office PC, a NAS, or a small VPS.
-
-1. Run the app (Docker is easiest).
-2. Put HTTPS in front of it, for example [Caddy](https://caddyserver.com): `planner.innov-8.co.za { reverse_proxy localhost:3000 }`.
-   Or use a free Cloudflare Tunnel if you don't want to open ports.
+1. Run the app (`docker compose up -d --build` is easiest).
+2. Put HTTPS in front of it, for example [Caddy](https://caddyserver.com): `planner.innov-8.co.za { reverse_proxy localhost:3000 }`, or use a free Cloudflare Tunnel.
 3. Set `TRUST_PROXY=1` (already set in `docker-compose.yml`) so sign-in cookies are marked Secure.
-4. Point a subdomain such as `planner.innov-8.co.za` at it.
 
 ## Match the website's brand
 
@@ -61,7 +72,8 @@ Replace `--brand`, `--ink` and the font variables with the website's, update the
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | 3000 | Port to listen on |
-| `DATA_DIR` | `./data` | Where `planner.db` lives |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | unset | Use a Turso database instead of the local file (required on Vercel) |
+| `DATA_DIR` | `./data` | Where `planner.db` lives when Turso isn't set |
 | `BACKUP_DIR` / `BACKUP_KEEP` | `./backups` / 30 | Backup location and how many to keep |
 | `TRUST_PROXY` | unset | Set to `1` behind an HTTPS reverse proxy |
 

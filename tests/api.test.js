@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import request from 'supertest';
 import { openDatabase } from '../server/db.js';
 import { createApp } from '../server/app.js';
@@ -7,8 +10,13 @@ const H = { 'X-Requested-With': 'innov8' };
 let app;
 let owner; // supertest agent with a session cookie
 
+// A fresh database file per test (libSQL transactions need a real file, not :memory:).
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'i8-test-'));
+let n = 0;
+afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
 async function setup() {
-  app = createApp(openDatabase(':memory:'));
+  app = createApp(await openDatabase({ url: `file:${path.join(tmp, `t${++n}.db`)}` }));
   owner = request.agent(app);
   await owner.post('/api/auth/setup').set(H).send({ name: 'Tanner', email: 'tanner@example.com', password: 'password123' }).expect(201);
 }

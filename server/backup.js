@@ -1,24 +1,32 @@
-// Writes a consistent copy of the database to ./backups (or BACKUP_DIR), keeping the newest 30.
-// Safe to run while the app is running. Schedule it daily with cron or Task Scheduler.
+// Exports every table to backups/planner-<timestamp>.json (or BACKUP_DIR), keeping the newest 30.
+// Works on the local file and on Turso (set TURSO_DATABASE_URL / TURSO_AUTH_TOKEN to back up the live data).
+// Restore into an empty database with: npm run restore -- backups/planner-<timestamp>.json
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
+import { databaseConfig, openDatabase } from './db.js';
+
+export const TABLES = ['users', 'boards', 'statuses', 'task_groups', 'labels', 'tasks', 'task_labels', 'subtasks', 'comments', 'activity'];
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dataDir = process.env.DATA_DIR || path.join(root, 'data');
-const backupDir = process.env.BACKUP_DIR || path.join(root, 'backups');
-const keep = Number(process.env.BACKUP_KEEP || 30);
 
-fs.mkdirSync(backupDir, { recursive: true });
-const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const target = path.join(backupDir, `planner-${stamp}.db`);
+async function backup() {
+  const backupDir = process.env.BACKUP_DIR || path.join(root, 'backups');
+  const keep = Number(process.env.BACKUP_KEEP || 30);
+  const db = await openDatabase(databaseConfig(path.join(process.env.DATA_DIR || path.join(root, 'data'), 'planner.db')));
 
-const db = new DatabaseSync(path.join(dataDir, 'planner.db'));
-db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
-db.close();
-console.log(`Backup written: ${target}`);
+  const dump = { version: 1, created_at: new Date().toISOString(), tables: {} };
+  for (const t of TABLES) dump.tables[t] = await db.all(`SELECT * FROM ${t}`);
 
-const old = fs.readdirSync(backupDir).filter((f) => /^planner-.*\.db$/.test(f)).sort().reverse().slice(keep);
-for (const f of old) fs.unlinkSync(path.join(backupDir, f));
-if (old.length) console.log(`Removed ${old.length} old backup(s).`);
+  fs.mkdirSync(backupDir, { recursive: true });
+  const target = path.join(backupDir, `planner-${dump.created_at.replace(/[:.]/g, '-')}.json`);
+  fs.writeFileSync(target, JSON.stringify(dump));
+  const counts = TABLES.map((t) => `${t} ${dump.tables[t].length}`).join(', ');
+  console.log(`Backup written: ${target}\n  ${counts}`);
+
+  const old = fs.readdirSync(backupDir).filter((f) => /^planner-.*\.json$/.test(f)).sort().reverse().slice(keep);
+  for (const f of old) fs.unlinkSync(path.join(backupDir, f));
+  if (old.length) console.log(`Removed ${old.length} old backup(s).`);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) await backup();

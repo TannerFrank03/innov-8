@@ -38,7 +38,7 @@ export function createApp(db, { staticDir, trustProxy } = {}) {
 
   if (staticDir && fs.existsSync(staticDir)) {
     app.use(express.static(staticDir, { index: false, maxAge: '1h' }));
-    app.get('*', (_req, res) => res.sendFile(path.join(staticDir, 'index.html')));
+    app.get('/{*path}', (_req, res) => res.sendFile(path.join(staticDir, 'index.html')));
   }
   return app;
 }
